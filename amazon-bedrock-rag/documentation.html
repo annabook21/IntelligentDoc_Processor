@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contextual Chatbot with Amazon Bedrock</title>
+    <title>AWS Contextual Chatbot Demo - Architecture</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -14,7 +14,7 @@
             padding: 0;
         }
         .container {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 40px auto;
             padding: 20px;
             background-color: #2a2a2a;
@@ -22,12 +22,12 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         h1, h2, h3 {
-            color: #4da6ff;
-            border-bottom: 2px solid #4da6ff;
+            color: #FF9900;
+            border-bottom: 2px solid #FF9900;
             padding-bottom: 10px;
         }
         h1 { font-size: 2.5em; }
-        h2 { font-size: 2em; }
+        h2 { font-size: 2em; margin-top: 40px; }
         h3 { font-size: 1.5em; }
         p {
             margin-bottom: 1em;
@@ -39,6 +39,7 @@
             font-size: 85%;
             border-radius: 3px;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            color: #FF9900;
         }
         pre {
             background-color: #212121;
@@ -58,128 +59,332 @@
             margin-bottom: 0.5em;
         }
         strong {
-            color: #ffb86c;
+            color: #FF9900;
         }
         .mermaid {
-            background-color: #333;
+            background-color: #1a1a1a;
             border-radius: 8px;
-            padding: 20px;
-            text-align: center;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .badge-serverless {
+            background-color: #FF9900;
+            color: #232F3E;
+        }
+        .badge-rag {
+            background-color: #146EB4;
+            color: white;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Contextual Chatbot with Amazon Bedrock Knowledge Bases</h1>
-        <p>This project provides a fully deployable, self-contained contextual chatbot application using Amazon Bedrock Knowledge Bases. It features a complete backend infrastructure defined in AWS CDK and a simple React frontend.</p>
+        <h1>AWS Contextual Chatbot Demo <span class="badge badge-serverless">Serverless</span><span class="badge badge-rag">RAG</span></h1>
+        <p>A fully serverless, production-ready contextual chatbot built with Amazon Bedrock Knowledge Bases, AWS CDK, and React. Features real-time document ingestion, drag-and-drop file uploads, and retrieval-augmented generation (RAG) with citations.</p>
 
-        <h2>Architecture</h2>
-        <p>The entire application is defined as Infrastructure as Code (IaC), allowing for easy and repeatable deployments. The architecture consists of a serverless backend, a document ingestion pipeline, and a web-based frontend.</p>
+        <h2>Architecture Overview</h2>
+        <p>This is a 100% serverless architecture deployed via AWS CDK (Infrastructure as Code). The system automatically processes uploaded documents, creates vector embeddings, and provides intelligent responses with source citations.</p>
         <div class="mermaid">
-graph TD
-    subgraph "User Interaction"
-        User[<fa:fa-user> User] -->|1. Accesses UI| FE_CF[<fa:fa-cloud> CloudFront Distribution]
-        FE_CF -->|2. Serves static content| FE_S3[<fa:fa-box-archive> S3 Frontend Bucket]
-        User -->|3. Sends Query| APIGW[<fa:fa-server> API Gateway]
+graph TB
+    subgraph Internet ["🌐 Internet"]
+        User["👤 User<br/>Web Browser"]
     end
 
-    subgraph "Data Ingestion"
-        Admin[<fa:fa-user-shield> Admin] -->|A. Uploads File| DS_S3[<fa:fa-box-archive> S3 Docs Bucket]
-        DS_S3 -->|B. Triggers Event| IngestLambda[<fa:fa-bolt> Ingestion Lambda]
-        IngestLambda -->|C. Starts Job| BedrockKB[<fa:fa-brain> Bedrock Knowledge Base]
-        DS_S3 -->|Replicates to| DR_S3[<fa:fa-box-archive> S3 DR Bucket]
+    subgraph CDN ["Content Delivery"]
+        CF["☁️ CloudFront<br/>Distribution<br/><i>Global CDN</i>"]
     end
 
-    subgraph "Backend Logic"
-        APIGW -->|4. Invokes| QueryLambda[<fa:fa-bolt> Query Lambda]
-        QueryLambda -->|5. Retrieves & Generates| BedrockKB
-        BedrockKB -->|6. Returns Response & Citations| QueryLambda
-        QueryLambda -->|7. Returns to User| APIGW
+    subgraph Storage ["Frontend Storage"]
+        FrontendS3["📦 S3 Bucket<br/>Frontend<br/><i>React App + config.json</i>"]
     end
 
-    style User fill:#f9f,stroke:#333,stroke-width:2px
-    style Admin fill:#ccf,stroke:#333,stroke-width:2px
+    subgraph API ["API Layer"]
+        APIGW["🔌 API Gateway<br/>REST API<br/><i>/docs, /upload</i>"]
+    end
+
+    subgraph Compute ["Lambda Functions"]
+        QueryLambda["⚡ Query Lambda<br/><i>Node.js 20.x</i><br/>RetrieveAndGenerate"]
+        UploadLambda["⚡ Upload Lambda<br/><i>Node.js 20.x</i><br/>Generate Pre-signed URL"]
+        IngestLambda["⚡ Ingestion Lambda<br/><i>Node.js 20.x</i><br/>Start Bedrock Job"]
+    end
+
+    subgraph DocStorage ["Document Storage"]
+        DocsS3["📦 S3 Bucket<br/>Documents<br/><i>Versioned + CORS</i>"]
+    end
+
+    subgraph AI ["AI/ML Services"]
+        BedrockKB["🧠 Bedrock<br/>Knowledge Base<br/><i>Titan Embed v1</i>"]
+        BedrockLLM["🤖 Bedrock<br/>Foundation Models<br/><i>Claude Sonnet</i>"]
+        OSS["🔍 OpenSearch<br/>Serverless<br/><i>Vector Store</i>"]
+    end
+
+    subgraph WebCrawler ["Web Data Source"]
+        WebDS["🕷️ Web Crawler<br/>Data Source<br/><i>Custom Resource</i>"]
+        UpdateURLs["⚡ Update URLs<br/>Lambda"]
+        GetURLs["⚡ Get URLs<br/>Lambda"]
+        CrawlJob["⚡ Crawl Job<br/>Lambda<br/><i>Scheduled Daily</i>"]
+    end
+
+    User -->|"1. HTTPS Request"| CF
+    CF -->|"2. Serve React App"| FrontendS3
+    User -->|"3. Upload File via UI"| APIGW
+    User -->|"4. Send Query"| APIGW
+    
+    APIGW -->|"5a. POST /upload"| UploadLambda
+    UploadLambda -->|"6. Generate Pre-signed URL"| DocsS3
+    
+    APIGW -->|"5b. POST /docs"| QueryLambda
+    QueryLambda -->|"7. RetrieveAndGenerate API"| BedrockKB
+    BedrockKB -->|"8. Query Vectors"| OSS
+    BedrockKB -->|"9. Generate Response"| BedrockLLM
+    BedrockLLM -->|"10. Answer + Citations"| QueryLambda
+    QueryLambda -->|"11. JSON Response"| User
+    
+    DocsS3 -->|"S3 Event: ObjectCreated"| IngestLambda
+    IngestLambda -->|"12. StartIngestionJob"| BedrockKB
+    BedrockKB -->|"13. Chunk & Vectorize"| OSS
+    
+    WebDS -.->|"Data Source"| BedrockKB
+    APIGW -->|"POST /web-urls"| UpdateURLs
+    UpdateURLs -->|"Update Seed URLs"| WebDS
+    APIGW -->|"GET /urls"| GetURLs
+    GetURLs -->|"Retrieve URLs"| WebDS
+    CrawlJob -->|"Daily Trigger"| WebDS
+
+    style User fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#232F3E
+    style CF fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff
+    style APIGW fill:#FF4F8B,stroke:#232F3E,stroke-width:2px,color:#fff
+    style QueryLambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E
+    style UploadLambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E
+    style IngestLambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E
+    style BedrockKB fill:#01A88D,stroke:#232F3E,stroke-width:3px,color:#fff
+    style BedrockLLM fill:#01A88D,stroke:#232F3E,stroke-width:2px,color:#fff
+    style OSS fill:#146EB4,stroke:#232F3E,stroke-width:2px,color:#fff
+    style FrontendS3 fill:#569A31,stroke:#232F3E,stroke-width:2px,color:#fff
+    style DocsS3 fill:#569A31,stroke:#232F3E,stroke-width:2px,color:#fff
+    style WebDS fill:#527FFF,stroke:#232F3E,stroke-width:2px,color:#fff
+    style UpdateURLs fill:#FF9900,stroke:#232F3E,stroke-width:1px,color:#232F3E
+    style GetURLs fill:#FF9900,stroke:#232F3E,stroke-width:1px,color:#232F3E
+    style CrawlJob fill:#FF9900,stroke:#232F3E,stroke-width:1px,color:#232F3E
         </div>
 
         <h2>Core Components</h2>
 
-        <h3>1. Frontend</h3>
+        <h3>1. Frontend Layer</h3>
         <ul>
-            <li><strong>CloudFront Distribution (<code>AWS::CloudFront::Distribution</code>):</strong> Acts as the primary entry point for users. It serves the frontend application's static files from the S3 bucket and provides caching and HTTPS.</li>
-            <li><strong>Frontend S3 Bucket (<code>AWS::S3::Bucket</code>):</strong> A private S3 bucket that stores the built React application (HTML, CSS, JS). Access is restricted to CloudFront via an Origin Access Identity (OAI).</li>
-        </ul>
-
-        <h3>2. API Gateway</h3>
-        <ul>
-            <li><strong>API Gateway (<code>AWS::ApiGateway::RestApi</code>):</strong> Provides a RESTful API endpoint for the frontend to communicate with the backend. It's protected by a Web Application Firewall (WAF).
+            <li><strong>CloudFront Distribution:</strong> Global CDN that serves the React application with HTTPS, caching, and low-latency delivery. Handles 403/404 errors by redirecting to <code>index.html</code> for client-side routing.</li>
+            <li><strong>Frontend S3 Bucket:</strong> Stores the built React application with auto-configured <code>config.json</code> containing the API Gateway URL. Access is restricted to CloudFront via Origin Access Control (OAC).</li>
+            <li><strong>React Application:</strong> Modern UI with:
                 <ul>
-                    <li><strong><code>/docs</code> (POST):</strong> The primary endpoint for submitting user queries to the chatbot.</li>
-                    <li><strong><code>/urls</code> (GET) & <code>/web-urls</code> (POST):</strong> Endpoints for managing the seed URLs for the web crawler data source.</li>
+                    <li>Auto-configured API URL (no manual setup required)</li>
+                    <li>Drag-and-drop file upload with progress indicators</li>
+                    <li>Model selection (Claude 3.5 Sonnet, Claude 3 Haiku, etc.)</li>
+                    <li>Chat interface with conversation history</li>
+                    <li>Source citations with relevance scores</li>
                 </ul>
             </li>
         </ul>
 
-        <h3>3. Backend Logic</h3>
+        <h3>2. API Layer</h3>
         <ul>
-            <li><strong>Query Lambda (<code>AWS::Lambda::Function</code>):</strong> The core of the chatbot's logic. It's invoked by the API Gateway and is responsible for:
+            <li><strong>API Gateway (REST API):</strong> Serverless API with CORS enabled and usage plans for throttling:
                 <ul>
-                    <li>Receiving the user's query.</li>
-                    <li>Calling the Bedrock <code>RetrieveAndGenerate</code> API to get an answer from the knowledge base.</li>
-                    <li>Returning the response, including citations, to the user.</li>
+                    <li><strong><code>POST /docs</code>:</strong> Main chatbot query endpoint</li>
+                    <li><strong><code>POST /upload</code>:</strong> Generate pre-signed S3 URLs for file uploads</li>
+                    <li><strong><code>GET /urls</code>:</strong> Retrieve web crawler seed URLs</li>
+                    <li><strong><code>POST /web-urls</code>:</strong> Update web crawler seed URLs</li>
                 </ul>
             </li>
         </ul>
 
-        <h3>4. Data Ingestion & Knowledge Base</h3>
+        <h3>3. Compute Layer (Lambda Functions)</h3>
         <ul>
-            <li><strong>Docs S3 Bucket (<code>AWS::S3::Bucket</code>):</strong> The primary data source for the knowledge base. When a user uploads a file to this bucket, it triggers the ingestion process. It is configured with versioning and cross-region replication for disaster recovery.</li>
-            <li><strong>DR S3 Bucket (<code>AWS::S3::Bucket</code>):</strong> A replica of the Docs S3 Bucket in a different region to ensure data durability.</li>
-            <li><strong>Ingestion Lambda (<code>AWS::Lambda::Function</code>):</strong> Triggered by S3 <code>PUT</code> events on the Docs S3 Bucket. This function starts an ingestion job in Bedrock, which processes the new document and adds it to the knowledge base.</li>
-            <li><strong>Web Crawler Lambdas (<code>AWS::Lambda::Function</code>):</strong> A set of Lambdas to create, manage, and periodically trigger a web crawling data source for the Bedrock Knowledge Base.</li>
-            <li><strong>Bedrock Knowledge Base (<code>Bedrock::VectorKnowledgeBase</code>):</strong> The heart of the RAG pipeline. It automatically chunks and vectorizes documents from the S3 data source and stores them in a vector store for efficient retrieval.</li>
+            <li><strong>Query Lambda (<code>query-bedrock-llm</code>):</strong> Core chatbot logic using Bedrock's <code>RetrieveAndGenerate</code> API. Returns AI-generated responses with source citations and relevance scores.</li>
+            <li><strong>Upload Lambda (<code>generate-upload-url</code>):</strong> Generates secure, time-limited pre-signed S3 URLs for direct browser-to-S3 file uploads. Adds timestamps to prevent filename collisions.</li>
+            <li><strong>Ingestion Lambda (<code>start-ingestion-trigger</code>):</strong> Triggered by S3 ObjectCreated events. Starts Bedrock ingestion jobs to process new documents.</li>
+            <li><strong>Web Crawler Lambdas:</strong> Manage web crawling data source with scheduled daily crawls.</li>
         </ul>
 
-        <h2>Deployment</h2>
-        <p>The entire application can be deployed via the AWS CDK.</p>
+        <h3>4. Storage Layer & Data Protection</h3>
+        <ul>
+            <li><strong>Documents S3 Bucket:</strong> Versioned bucket with CORS configuration for direct browser uploads. Stores source documents (PDF, TXT, DOCX, MD) that feed into the knowledge base.</li>
+            <li><strong>S3 Event Notifications:</strong> Automatically trigger ingestion when new files are uploaded.</li>
+            <li><strong>S3 Versioning (Data Protection):</strong> Every file modification creates a new version, enabling:
+                <ul>
+                    <li>✅ Recovery from accidental deletions</li>
+                    <li>✅ Point-in-time restore of any document</li>
+                    <li>✅ Protection against accidental overwrites</li>
+                    <li>✅ Complete audit trail of all changes</li>
+                </ul>
+            </li>
+            <li><strong>S3 Durability:</strong> AWS S3 provides 99.999999999% (11 9's) durability, storing data redundantly across multiple Availability Zones within the region.</li>
+        </ul>
+
+        <h3>5. AI/ML Services</h3>
+        <ul>
+            <li><strong>Amazon Bedrock Knowledge Base:</strong> Fully managed RAG solution that:
+                <ul>
+                    <li>Chunks documents into 500-token segments with 20% overlap</li>
+                    <li>Generates embeddings using Amazon Titan Embed Text v1</li>
+                    <li>Stores vectors in OpenSearch Serverless</li>
+                    <li>Performs hybrid semantic search</li>
+                </ul>
+            </li>
+            <li><strong>OpenSearch Serverless:</strong> Vector database for storing and querying document embeddings. Automatically managed by Bedrock.</li>
+            <li><strong>Bedrock Foundation Models:</strong> Claude 3.5 Sonnet (default) and other models for generating contextual responses based on retrieved documents.</li>
+            <li><strong>S3 Data Source:</strong> Monitors the documents bucket and processes files automatically.</li>
+            <li><strong>Web Crawler Data Source:</strong> Custom resource for crawling external websites (configurable via API endpoints).</li>
+        </ul>
+
+        <h2>Deployment Guide</h2>
+        <p>Deploy the entire serverless stack in minutes using AWS CDK.</p>
 
         <h3>Prerequisites</h3>
         <ul>
-            <li>AWS CLI installed and configured with your credentials.</li>
-            <li>Node.js and npm installed.</li>
-            <li>AWS CDK installed (<code>npm install -g aws-cdk</code>).</li>
-            <li>Docker running on your local machine (for bundling Lambda assets).</li>
+            <li>✅ AWS CLI installed and configured with credentials</li>
+            <li>✅ Node.js 18+ and npm installed</li>
+            <li>✅ AWS CDK CLI installed: <code>npm install -g aws-cdk</code></li>
+            <li>✅ Docker running (required for Lambda bundling)</li>
+            <li>✅ Git (for cloning the repository)</li>
         </ul>
 
-        <h3>Steps</h3>
+        <h3>Deployment Steps</h3>
         <ol>
             <li><strong>Clone the repository:</strong>
-                <pre><code>git clone &lt;repository-url&gt;
-cd &lt;repository-name&gt;/backend</code></pre>
+                <pre><code>git clone https://github.com/annabook21/ChatBox_prototype.git
+cd ChatBox_prototype/backend</code></pre>
             </li>
-            <li><strong>Install dependencies:</strong>
+            <li><strong>Install CDK dependencies:</strong>
                 <pre><code>npm install</code></pre>
             </li>
-            <li><strong>(Optional) Bootstrap your AWS account for CDK:</strong>
-                <p><em>If you've never used CDK in this account/region before.</em></p>
+            <li><strong>(First-time only) Bootstrap CDK:</strong>
                 <pre><code>cdk bootstrap</code></pre>
             </li>
-            <li><strong>Synthesize the CloudFormation Template:</strong>
-                <p><em>To review the resources that will be created.</em></p>
+            <li><strong>(Optional) Review infrastructure changes:</strong>
                 <pre><code>cdk synth</code></pre>
             </li>
-            <li><strong>Deploy the stack:</strong>
+            <li><strong>🚀 Deploy the stack:</strong>
                 <pre><code>cdk deploy</code></pre>
+                <p><em>Deployment takes ~10-15 minutes. You'll be prompted to approve IAM changes.</em></p>
+            </li>
+            <li><strong>⚠️ CRITICAL: Enable Bedrock Model Access:</strong>
+                <p>After deployment, you MUST enable model access in the Bedrock console:</p>
+                <ol>
+                    <li>Go to AWS Console → Amazon Bedrock → Model access</li>
+                    <li>Click "Manage model access"</li>
+                    <li>Enable these models:
+                        <ul>
+                            <li><strong>Amazon Titan Embeddings G1 - Text</strong> (<code>amazon.titan-embed-text-v1</code>) - REQUIRED</li>
+                            <li><strong>Claude 3.5 Sonnet</strong> (<code>anthropic.claude-3-5-sonnet-20241022-v2:0</code>)</li>
+                            <li><strong>Claude 3 Haiku</strong> (optional)</li>
+                        </ul>
+                    </li>
+                    <li>Click "Save changes"</li>
+                </ol>
+                <p><em>⚠️ Without Titan Embeddings access, the chatbot will not work!</em></p>
             </li>
         </ol>
-        <p>After deployment, the CDK will output the URLs for the API Gateway and the CloudFront distribution.</p>
+
+        <h3>Post-Deployment Outputs</h3>
+        <p>After successful deployment, CDK will output:</p>
+        <ul>
+            <li><strong>CloudFrontURL:</strong> Your public chatbot URL (e.g., <code>d1a2b3c4d5e6f7.cloudfront.net</code>)</li>
+            <li><strong>APIGatewayUrl:</strong> Backend API endpoint (auto-configured in frontend)</li>
+            <li><strong>DocsBucketName:</strong> S3 bucket for document storage</li>
+        </ul>
 
         <h2>Usage</h2>
+
+        <h3>Accessing the Chatbot</h3>
         <ol>
-            <li>Navigate to the <strong>CloudFrontURL</strong> output from the deployment.</li>
-            <li>Use the interface to upload documents to the <strong>DocsBucketName</strong> S3 bucket.</li>
-            <li>Once the documents are uploaded, the ingestion process will start automatically.</li>
-            <li>You can then use the chat interface to ask questions about the documents you've uploaded.</li>
+            <li>Navigate to the <strong>CloudFrontURL</strong> from deployment outputs</li>
+            <li>The API URL is automatically configured - no manual setup needed! ✨</li>
+            <li>Select your preferred AI model from the dropdown</li>
         </ol>
+
+        <h3>Uploading Documents</h3>
+        <ol>
+            <li><strong>Via Web UI (Recommended):</strong>
+                <ul>
+                    <li>Click the upload area or drag & drop files</li>
+                    <li>Supported formats: PDF, TXT, DOCX, MD</li>
+                    <li>Files upload directly to S3 via pre-signed URLs</li>
+                    <li>Ingestion starts automatically within seconds</li>
+                </ul>
+            </li>
+            <li><strong>Via AWS CLI:</strong>
+                <pre><code>aws s3 cp document.pdf s3://&lt;DocsBucketName&gt;/</code></pre>
+            </li>
+        </ol>
+
+        <h3>Asking Questions</h3>
+        <ol>
+            <li>Wait 1-2 minutes for document ingestion to complete</li>
+            <li>Type your question in the chat interface</li>
+            <li>Get AI-generated responses with:
+                <ul>
+                    <li>✅ Source citations showing which documents were used</li>
+                    <li>✅ Relevance scores for each citation</li>
+                    <li>✅ Conversation history preserved in session</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Managing Web Crawler (Optional)</h3>
+        <p>To add websites to the knowledge base:</p>
+        <pre><code>curl -X POST https://&lt;API_URL&gt;/prod/web-urls \
+  -H "Content-Type: application/json" \
+  -d '{"urls": ["https://example.com"]}'</code></pre>
+
+        <h2>Troubleshooting</h2>
+        
+        <h3>Common Issues</h3>
+        <ul>
+            <li><strong>"Server side error" when asking questions:</strong>
+                <ul>
+                    <li>Check Bedrock model access is enabled (especially Titan Embeddings)</li>
+                    <li>View Lambda logs: <code>aws logs tail /aws/lambda/query-bedrock-llm --follow</code></li>
+                </ul>
+            </li>
+            <li><strong>File upload fails:</strong>
+                <ul>
+                    <li>Verify CORS is configured on the docs bucket</li>
+                    <li>Check browser console for errors</li>
+                    <li>Ensure file is under 5GB</li>
+                </ul>
+            </li>
+            <li><strong>Deployment fails on S3 bucket notifications:</strong>
+                <ul>
+                    <li>Ensure Lambda has <code>s3:PutBucketNotification</code> permission</li>
+                    <li>Check CloudFormation events for detailed error messages</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h2>Architecture Highlights</h2>
+        <ul>
+            <li>🚀 <strong>100% Serverless</strong> - No servers to manage, pay only for what you use</li>
+            <li>🔒 <strong>Secure by Default</strong> - HTTPS everywhere, S3 encryption, IAM least privilege</li>
+            <li>⚡ <strong>Auto-Scaling</strong> - Lambda and OpenSearch Serverless scale automatically</li>
+            <li>🌍 <strong>Global CDN</strong> - CloudFront delivers frontend with low latency worldwide</li>
+            <li>🧠 <strong>RAG-Powered</strong> - Retrieval Augmented Generation with source citations</li>
+            <li>🔄 <strong>Real-time Ingestion</strong> - Documents processed automatically on upload</li>
+            <li>💾 <strong>Data Protection</strong> - S3 versioning enables point-in-time recovery and protection from accidental deletions</li>
+            <li>📦 <strong>IaC</strong> - Everything defined in code, reproducible deployments</li>
+        </ul>
+
+        <h2>Cleanup</h2>
+        <p>To remove all resources and stop incurring charges:</p>
+        <pre><code>cdk destroy</code></pre>
+        <p><em>This will delete the CloudFormation stack and all associated resources.</em></p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>

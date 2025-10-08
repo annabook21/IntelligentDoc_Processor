@@ -51,7 +51,9 @@ export class BackendStack extends Stack {
     );
 
     /** S3 bucket for Bedrock data source */
-    const docsBucket = new s3.Bucket(this, "docsbucket-" + uuid.v4(), {
+    const docsBucketName = `docsbucket-${uuid.v4()}`;
+    const docsBucket = new s3.Bucket(this, docsBucketName, {
+      bucketName: docsBucketName,
       lifecycleRules: [
         {
           expiration: Duration.days(10),
@@ -82,71 +84,9 @@ export class BackendStack extends Stack {
       ],
     });
 
-    const drBucket = new s3.Bucket(this, "drbucket-" + uuid.v4(), {
-      lifecycleRules: [
-        {
-          expiration: Duration.days(10),
-        },
-      ],
-      blockPublicAccess: {
-        blockPublicAcls: true,
-        blockPublicPolicy: true,
-        ignorePublicAcls: true,
-        restrictPublicBuckets: true,
-      },
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      versioned: true,
-    });
-
-    const replicationRole = new iam.Role(this, "ReplicationRole", {
-      assumedBy: new iam.ServicePrincipal("s3.amazonaws.com"),
-      path: "/service-role/",
-    });
-
-    replicationRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "s3:GetObjectVersionForReplication",
-          "s3:GetObjectVersionAcl",
-          "s3:GetObjectVersionTagging",
-        ],
-        resources: [docsBucket.arnForObjects("*")],
-      })
-    );
-
-    replicationRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:ListBucket", "s3:GetReplicationConfiguration"],
-        resources: [docsBucket.bucketArn],
-      })
-    );
-
-    replicationRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:ReplicateObject", "s3:ReplicateDelete", "s3:ReplicateTags"],
-        resources: [drBucket.arnForObjects("*")],
-      })
-    );
-
-    new s3.CfnBucket(this, "MyCfnBucket", {
-      versioningConfiguration: {
-        status: "Enabled",
-      },
-      replicationConfiguration: {
-        role: replicationRole.roleArn,
-        rules: [
-          {
-            destination: {
-              bucket: drBucket.bucketArn,
-            },
-            status: "Enabled",
-          },
-        ],
-      },
-    });
+    // Data protection via S3 Versioning
+    // Versioning is already enabled above - provides point-in-time recovery
+    // and protection against accidental deletions
 
     const s3DataSource = new bedrock.S3DataSource(this, "s3DataSource", {
       bucket: docsBucket,
@@ -403,6 +343,7 @@ export class BackendStack extends Stack {
 
     new CfnOutput(this, "DocsBucketName", {
       value: docsBucket.bucketName,
+      description: "Documents bucket (versioned for data protection)",
     });
 
     /** Frontend */
