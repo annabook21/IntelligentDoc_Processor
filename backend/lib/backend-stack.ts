@@ -110,6 +110,9 @@ export class BackendStack extends Stack {
     );
 
     new s3.CfnBucket(this, "MyCfnBucket", {
+      versioningConfiguration: {
+        status: "Enabled",
+      },
       replicationConfiguration: {
         role: replicationRole.roleArn,
         rules: [
