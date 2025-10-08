@@ -1,6 +1,12 @@
+Great idea 👍 — your current README is solid, but it’s missing all the gotchas we just worked through. Here’s an **updated version** with improved prerequisites, clearer step-by-step deployment, and troubleshooting tips that match what you hit:
+
+---
+
 # Contextual Chatbot with Amazon Bedrock Knowledge Bases
 
 This project provides a fully deployable, self-contained contextual chatbot application using Amazon Bedrock Knowledge Bases. It features a complete backend infrastructure defined in AWS CDK and a simple React frontend.
+
+---
 
 ## Architecture
 
@@ -32,76 +38,102 @@ graph TD
     style Admin fill:#ccf,stroke:#333,stroke-width:2px
 ```
 
+---
+
 ## Core Components
 
-### 1. Frontend
+*(kept unchanged — frontend, API Gateway, backend, ingestion pipeline as in your draft)*
 
--   **CloudFront Distribution (`AWS::CloudFront::Distribution`):** Acts as the primary entry point for users. It serves the frontend application's static files from the S3 bucket and provides caching and HTTPS.
--   **Frontend S3 Bucket (`AWS::S3::Bucket`):** A private S3 bucket that stores the built React application (HTML, CSS, JS). Access is restricted to CloudFront via an Origin Access Identity (OAI).
-
-### 2. API Gateway
-
--   **API Gateway (`AWS::ApiGateway::RestApi`):** Provides a RESTful API endpoint for the frontend to communicate with the backend. It's protected by a Web Application Firewall (WAF).
-    -   **`/docs` (POST):** The primary endpoint for submitting user queries to the chatbot.
-    -   **`/urls` (GET) & `/web-urls` (POST):** Endpoints for managing the seed URLs for the web crawler data source.
-
-### 3. Backend Logic
-
--   **Query Lambda (`AWS::Lambda::Function`):** The core of the chatbot's logic. It's invoked by the API Gateway and is responsible for:
-    -   Receiving the user's query.
-    -   Calling the Bedrock `RetrieveAndGenerate` API to get an answer from the knowledge base.
-    -   Returning the response, including citations, to the user.
-
-### 4. Data Ingestion & Knowledge Base
-
--   **Docs S3 Bucket (`AWS::S3::Bucket`):** The primary data source for the knowledge base. When a user uploads a file to this bucket, it triggers the ingestion process. It is configured with versioning and cross-region replication for disaster recovery.
--   **DR S3 Bucket (`AWS::S3::Bucket`):** A replica of the Docs S3 Bucket in a different region to ensure data durability.
--   **Ingestion Lambda (`AWS::Lambda::Function`):** Triggered by S3 `PUT` events on the Docs S3 Bucket. This function starts an ingestion job in Bedrock, which processes the new document and adds it to the knowledge base.
--   **Web Crawler Lambdas (`AWS::Lambda::Function`):** A set of Lambdas to create, manage, and periodically trigger a web crawling data source for the Bedrock Knowledge Base.
--   **Bedrock Knowledge Base (`Bedrock::VectorKnowledgeBase`):** The heart of the RAG pipeline. It automatically chunks and vectorizes documents from the S3 data source and stores them in a vector store for efficient retrieval.
+---
 
 ## Deployment
 
-The entire application can be deployed via the AWS CDK.
-
 ### Prerequisites
 
--   AWS CLI installed and configured with your credentials.
--   Node.js and npm installed.
--   AWS CDK installed (`npm install -g aws-cdk`).
--   Docker running on your local machine (for bundling Lambda assets).
+Make sure you have these installed/configured first:
+
+* **AWS CLI** installed and configured (`aws configure`) with valid access key/secret key.
+
+  * Verify with: `aws sts get-caller-identity`
+* **Node.js** ≥ 22.9.0 and npm.
+* **AWS CDK CLI**:
+
+  ```bash
+  npm install -g aws-cdk
+  ```
+* **Docker Desktop** installed and running (required for bundling Lambda assets).
+* **Set your region** to `us-west-2` (or your preferred one):
+
+  ```bash
+  export AWS_DEFAULT_REGION=us-west-2
+  ```
 
 ### Steps
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd <repository-name>/backend
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-3.  **(Optional) Bootstrap your AWS account for CDK:**
-    *If you've never used CDK in this account/region before.*
-    ```bash
-    cdk bootstrap
-    ```
-4.  **Synthesize the CloudFormation Template:**
-    *To review the resources that will be created.*
-    ```bash
-    cdk synth
-    ```
-5.  **Deploy the stack:**
-    ```bash
-    cdk deploy
-    ```
+1. **Clone the repository**
 
-After deployment, the CDK will output the URLs for the API Gateway and the CloudFront distribution.
+   ```bash
+   git clone <repository-url>
+   cd <repository-name>/backend
+   ```
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   npm install aws-cdk-lib constructs typescript ts-node --save-dev
+   ```
+3. **Bootstrap your AWS account**
+   *(only needed once per account/region)*
+
+   ```bash
+   cdk bootstrap aws://<your-account-id>/us-west-2
+   ```
+
+   🔹 If you see `StagingBucket already exists` errors, delete the old bucket `cdk-hnb659fds-assets-<account>-us-west-2` in S3 and re-run bootstrap.
+4. **Synthesize the stack**
+
+   ```bash
+   cdk synth
+   ```
+
+   This outputs the CloudFormation template so you can preview what will be deployed.
+5. **Deploy**
+
+   ```bash
+   cdk deploy
+   ```
+
+   This creates all the resources (API Gateway, S3 buckets, Lambdas, CloudFront, etc.).
+
+---
 
 ## Usage
 
-1.  Navigate to the **CloudFrontURL** output from the deployment.
-2.  Use the interface to upload documents to the **DocsBucketName** S3 bucket.
-3.  Once the documents are uploaded, the ingestion process will start automatically.
-4.  You can then use the chat interface to ask questions about the documents you've uploaded.
+1. Copy the **CloudFront URL** from the deployment output.
+2. Open it in your browser to access the chatbot UI.
+3. Upload documents into the **DocsBucketName** S3 bucket (also shown in output).
+4. The ingestion Lambda will process files and add them to the knowledge base automatically.
+5. Use the web UI to ask questions — answers will include citations from your uploaded docs.
+
+---
+
+## Troubleshooting
+
+* **Error: `Cannot connect to the Docker daemon`**
+  → Make sure Docker Desktop is installed and running. Test with `docker ps`.
+* **Error: `SSM parameter /cdk-bootstrap/... not found`**
+  → Run `cdk bootstrap aws://<account>/us-west-2`.
+* **Error: `StagingBucket already exists` during bootstrap**
+  → Delete the old S3 bucket `cdk-hnb659fds-assets-<account>-us-west-2` or rerun bootstrap with `--bootstrap-bucket-name`.
+* **Deploying to wrong region (`us-east-1` instead of `us-west-2`)**
+  → Set region in `bin/backend.ts`:
+
+  ```ts
+  new BackendStack(app, 'BackendStack', {
+    env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: 'us-west-2' }
+  });
+  ```
+
+  Or set `export AWS_DEFAULT_REGION=us-west-2` before deploying.
+
+
