@@ -25,32 +25,43 @@ export const QAHeader = (props) => {
     }
   };
 
+  const isAutoConfigured = process.env.REACT_APP_API_URL ? true : false;
+
   return (
     <div>
       <Typography
         variant="overline"
         sx={{ width: "100%", paddingBottom: "25px" }}
       >
-        1. Input your base url here:
+        1. {isAutoConfigured ? "API URL (Auto-configured):" : "Input your base url here:"}
       </Typography>
+      {isAutoConfigured && (
+        <Alert severity="success" sx={{ marginBottom: "10px" }}>
+          API URL has been automatically configured during deployment.
+        </Alert>
+      )}
       <OutlinedInput
         id="standard-basic"
         value={url}
         sx={{ width: "100%" }}
         name="Base Url"
+        readOnly={isAutoConfigured}
+        disabled={isAutoConfigured}
         onChange={(event) => setUrl(event.target?.value)}
         onKeyDown={handleKeyDown}
         placeholder="https://example.execute-api.example.amazonaws.com/example/"
         endAdornment={
-          <InputAdornment position="end">
-            <IconButton
-              color="primary"
-              onClick={() => setBaseUrl(url)}
-              onMouseDown={() => setBaseUrl(url)}
-            >
-              <InputIcon />
-            </IconButton>
-          </InputAdornment>
+          !isAutoConfigured && (
+            <InputAdornment position="end">
+              <IconButton
+                color="primary"
+                onClick={() => setBaseUrl(url)}
+                onMouseDown={() => setBaseUrl(url)}
+              >
+                <InputIcon />
+              </IconButton>
+            </InputAdornment>
+          )
         }
       />
       <br></br>

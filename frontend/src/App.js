@@ -17,7 +17,7 @@ import {modelList} from "./RAGModels"
 const App = (props) => {
   const [history, setHistory] = useState([]);
   const [selectedModel, setSelectedModel] = useState(undefined);
-  const [baseUrl, setBaseUrl] = useState(undefined);
+  const [baseUrl, setBaseUrl] = useState(process.env.REACT_APP_API_URL || undefined);
   const [question, setQuestion] = useState('');
   const [spinner, setSpinner] = useState(false);
   const [sessionId, setSessionId] = useState(undefined);
