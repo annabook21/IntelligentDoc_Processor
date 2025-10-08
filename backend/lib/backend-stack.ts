@@ -422,9 +422,6 @@ export class BackendStack extends Stack {
           bundling: {
             image: Runtime.NODEJS_20_X.bundlingImage,
             user: "root",
-            environment: {
-              REACT_APP_API_URL: apiGateway.url,
-            },
             command: [
               "bash",
               "-c",
@@ -435,6 +432,10 @@ export class BackendStack extends Stack {
               ].join(" && "),
             ],
           },
+        }),
+        // Deploy runtime config with API URL
+        s3deploy.Source.jsonData("config.json", {
+          apiUrl: apiGateway.url,
         }),
       ],
       destinationBucket: frontendBucket,

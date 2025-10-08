@@ -18,7 +18,7 @@ import {modelList} from "./RAGModels"
 const App = (props) => {
   const [history, setHistory] = useState([]);
   const [selectedModel, setSelectedModel] = useState(undefined);
-  const [baseUrl, setBaseUrl] = useState(process.env.REACT_APP_API_URL || undefined);
+  const [baseUrl, setBaseUrl] = useState(undefined);
   const [question, setQuestion] = useState('');
   const [spinner, setSpinner] = useState(false);
   const [sessionId, setSessionId] = useState(undefined);
@@ -28,6 +28,20 @@ const App = (props) => {
     seedUrlList: [],
   });
   const [hasWebDataSource, setHasWebDataSource] = useState(false);
+
+  // Load API URL from config.json at startup
+  useEffect(() => {
+    fetch('/config.json')
+      .then(res => res.json())
+      .then(config => {
+        if (config.apiUrl) {
+          setBaseUrl(config.apiUrl);
+        }
+      })
+      .catch(err => {
+        console.warn('Could not load config.json, API URL must be entered manually:', err);
+      });
+  }, []);
 
   useEffect(() => {
     if (!baseUrl) {

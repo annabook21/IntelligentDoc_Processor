@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import { Typography } from "@mui/material";
@@ -19,13 +19,20 @@ export const QAHeader = (props) => {
   const modelListDisabledText =
     "Input a valid base url to enable model selection";
 
+  // Update url field when baseUrl is loaded from config
+  React.useEffect(() => {
+    if (baseUrl && !url) {
+      setUrl(baseUrl);
+    }
+  }, [baseUrl, url]);
+
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
       setBaseUrl(url);
     }
   };
 
-  const isAutoConfigured = process.env.REACT_APP_API_URL ? true : false;
+  const isAutoConfigured = baseUrl && url ? true : false;
 
   return (
     <div>
