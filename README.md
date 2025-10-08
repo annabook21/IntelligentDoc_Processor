@@ -93,7 +93,28 @@ Make sure you have these installed/configured first:
    ```
 
    This outputs the CloudFormation template so you can preview what will be deployed.
-5. **Deploy**
+5. **Enable Bedrock Model Access** ⚠️ **CRITICAL STEP**
+
+   Before deployment, you **must** enable access to Bedrock models in your AWS account:
+
+   a. Go to [AWS Bedrock Console → Model access](https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess)
+   
+   b. Click **Edit** or **Manage model access**
+   
+   c. Enable these models:
+   
+      - ✅ **Amazon Titan Embeddings G1 - Text** (`amazon.titan-embed-text-v1`) - **REQUIRED for document ingestion**
+      - ✅ **Amazon Titan Text Premier** - Optional, for queries
+      - ✅ **Anthropic Claude 3 Sonnet** - Optional, for queries
+      - ✅ **Anthropic Claude Instant** - Default model for queries
+   
+   d. Click **Save changes** or **Request model access**
+   
+   e. Wait 1-2 minutes for access to be granted
+
+   **Note:** Without Titan Embeddings enabled, document ingestion will fail!
+
+6. **Deploy**
 
    ```bash
    cdk deploy
@@ -105,22 +126,37 @@ Make sure you have these installed/configured first:
 
 ## Usage
 
-1. Copy the **CloudFront URL** from the deployment output.
-2. Open it in your browser to access the chatbot UI.
-3. Upload documents into the **DocsBucketName** S3 bucket (also shown in output).
-4. The ingestion Lambda will process files and add them to the knowledge base automatically.
-5. Use the web UI to ask questions — answers will include citations from your uploaded docs.
+1. **Access the UI**
+   - Copy the **CloudFrontURL** from the deployment output
+   - Open it in your browser
+   - The API URL is **automatically configured** - no manual setup needed!
+
+2. **Upload Documents**
+   - Use the **file upload feature** in the UI (Step 3)
+   - Supported formats: PDF, TXT, DOCX, MD
+   - Files are automatically processed and added to the knowledge base
+   - Wait 1-2 minutes for ingestion to complete
+
+3. **Ask Questions**
+   - Select a model (or use the default)
+   - Type your question
+   - The chatbot returns answers with citations from your uploaded documents
 
 ---
 
 ## Troubleshooting
 
+### Deployment Issues
+
 * **Error: `Cannot connect to the Docker daemon`**
   → Make sure Docker Desktop is installed and running. Test with `docker ps`.
+
 * **Error: `SSM parameter /cdk-bootstrap/... not found`**
   → Run `cdk bootstrap aws://<account>/us-west-2`.
+
 * **Error: `StagingBucket already exists` during bootstrap**
   → Delete the old S3 bucket `cdk-hnb659fds-assets-<account>-us-west-2` or rerun bootstrap with `--bootstrap-bucket-name`.
+
 * **Deploying to wrong region (`us-east-1` instead of `us-west-2`)**
   → Set region in `bin/backend.ts`:
 
@@ -131,6 +167,23 @@ Make sure you have these installed/configured first:
   ```
 
   Or set `export AWS_DEFAULT_REGION=us-west-2` before deploying.
+
+### Runtime Issues
+
+* **Error: "You don't have access to the model"** or **"ValidationException: Invalid input or configuration"**
+  → Enable Bedrock model access (see step 5 above). The **Titan Embeddings** model is **required** for document ingestion!
+
+* **Chatbot returns "Server side error"**
+  → Check CloudWatch logs: `aws logs tail /aws/lambda/query-bedrock-llm --follow --region us-west-2`
+  → Ensure you have uploaded documents and they have been processed (wait 1-2 minutes after upload)
+
+* **File upload doesn't work**
+  → Check browser console for errors
+  → Verify the upload Lambda exists: `aws lambda get-function --function-name generate-upload-url --region us-west-2`
+
+* **Documents not appearing in knowledge base**
+  → Check ingestion logs: `aws logs tail /aws/lambda/start-ingestion-trigger --follow --region us-west-2`
+  → Verify Titan Embeddings model access is enabled
 
 
 
