@@ -12,6 +12,7 @@ import LoadingSpinner from "./Spinner";
 import IconButton from "@mui/material/IconButton";
 import SendIcon from "@mui/icons-material/Send";
 import UrlSourcesForm from "./WebUrlsForm";
+import FileUpload from "./FileUpload";
 import {modelList} from "./RAGModels"
 
 const App = (props) => {
@@ -172,7 +173,14 @@ const App = (props) => {
             setSelectedModel={handleChangeModel}
             selectedModel={selectedModel}
           />
-          <Divider />
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="overline" sx={{ paddingBottom: "10px" }}>
+            3. Upload Documents (Optional):
+          </Typography>
+          <FileUpload baseUrl={baseUrl} />
+          
+          <Divider sx={{ my: 3 }} />
 
           <Box
             sx={{
@@ -183,7 +191,7 @@ const App = (props) => {
               paddingTop: "20px",
             }}
           >
-            <Typography variant="overline">3. Ask a question:</Typography>
+            <Typography variant="overline">4. Ask a question:</Typography>
             <Button
               disabled={history.length === 0}
               startIcon={<DeleteIcon />}

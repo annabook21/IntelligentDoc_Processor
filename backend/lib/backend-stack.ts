@@ -338,6 +338,25 @@ export class BackendStack extends Stack {
       .addResource("urls")
       .addMethod("GET", new apigw.LambdaIntegration(lambdaGetWebUrls));
 
+    /** Lambda for file upload pre-signed URLs */
+
+    const lambdaUpload = new NodejsFunction(this, "Upload", {
+      runtime: Runtime.NODEJS_20_X,
+      entry: join(__dirname, "../lambda/upload/index.js"),
+      functionName: `generate-upload-url`,
+      timeout: Duration.seconds(10),
+      environment: {
+        DOCS_BUCKET_NAME: docsBucket.bucketName,
+      },
+    });
+
+    // Grant Lambda permission to generate pre-signed URLs for the docs bucket
+    docsBucket.grantPut(lambdaUpload);
+
+    apiGateway.root
+      .addResource("upload")
+      .addMethod("POST", new apigw.LambdaIntegration(lambdaUpload));
+
     // Usage plan with throttling for basic API protection
     apiGateway.addUsagePlan("usage-plan", {
       name: "dev-docs-plan",
