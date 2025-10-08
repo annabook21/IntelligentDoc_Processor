@@ -68,6 +68,18 @@ export class BackendStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: true,
+      cors: [
+        {
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.POST,
+          ],
+          allowedOrigins: ["*"], // Allow all origins for pre-signed URL uploads
+          allowedHeaders: ["*"],
+          maxAge: 3000,
+        },
+      ],
     });
 
     const drBucket = new s3.Bucket(this, "drbucket-" + uuid.v4(), {
