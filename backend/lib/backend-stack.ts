@@ -39,6 +39,17 @@ export class BackendStack extends Stack {
       }
     );
 
+    // Grant Knowledge Base role permission to invoke Bedrock embedding model
+    knowledgeBase.role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/amazon.titan-embed-text-v1`,
+        ],
+      })
+    );
+
     /** S3 bucket for Bedrock data source */
     const docsBucket = new s3.Bucket(this, "docsbucket-" + uuid.v4(), {
       lifecycleRules: [
