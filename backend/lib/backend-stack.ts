@@ -16,7 +16,6 @@ import { bedrock } from "@cdklabs/generative-ai-cdk-constructs";
 import { S3EventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
-import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as events from "aws-cdk-lib/aws-events";
@@ -295,8 +294,6 @@ export class BackendStack extends Stack {
       })
     );
 
-    const whitelistedIps = [Stack.of(this).node.tryGetContext("allowedip")];
-
     const apiGateway = new apigw.RestApi(this, "rag", {
       description: "API for RAG",
       restApiName: "rag-api",
@@ -341,6 +338,7 @@ export class BackendStack extends Stack {
       .addResource("urls")
       .addMethod("GET", new apigw.LambdaIntegration(lambdaGetWebUrls));
 
+    // Usage plan with throttling for basic API protection
     apiGateway.addUsagePlan("usage-plan", {
       name: "dev-docs-plan",
       description: "usage plan for dev",
@@ -355,81 +353,6 @@ export class BackendStack extends Stack {
         burstLimit: 200,
       },
     });
-
-    /**
-     * Create and Associate ACL with Gateway
-     */
-    // Create an IPSet
-    const allowedIpSet = new wafv2.CfnIPSet(this, "DevIpSet", {
-      addresses: whitelistedIps, // whitelisted IPs in CIDR format
-      ipAddressVersion: "IPV4",
-      scope: "REGIONAL",
-      description: "List of allowed IP addresses",
-    });
-    // Create our Web ACL
-    const webACL = new wafv2.CfnWebACL(this, "WebACL", {
-      defaultAction: {
-        block: {},
-      },
-      scope: "REGIONAL",
-      visibilityConfig: {
-        cloudWatchMetricsEnabled: true,
-        metricName: "webACL",
-        sampledRequestsEnabled: true,
-      },
-      rules: [
-        {
-          name: "IPAllowList",
-          priority: 1,
-          statement: {
-            ipSetReferenceStatement: {
-              arn: allowedIpSet.attrArn,
-            },
-          },
-          action: {
-            allow: {},
-          },
-          visibilityConfig: {
-            sampledRequestsEnabled: true,
-            cloudWatchMetricsEnabled: true,
-            metricName: "IPAllowList",
-          },
-        },
-      ],
-    });
-
-    const webAclLogGroup = new logs.LogGroup(this, "awsWafLogs", {
-      logGroupName: `aws-waf-logs-backend`,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    // Create logging configuration with log group as destination
-    new wafv2.CfnLoggingConfiguration(this, "WAFLoggingConfiguration", {
-      resourceArn: webACL.attrArn,
-      logDestinationConfigs: [
-        Stack.of(this).formatArn({
-          arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-          service: "logs",
-          resource: "log-group",
-          resourceName: webAclLogGroup.logGroupName,
-        }),
-      ],
-    });
-
-    // Associate with our gateway
-    const webACLAssociation = new wafv2.CfnWebACLAssociation(
-      this,
-      "WebACLAssociation",
-      {
-        webAclArn: webACL.attrArn,
-        resourceArn: `arn:aws:apigateway:${Stack.of(this).region}::/restapis/${
-          apiGateway.restApiId
-        }/stages/${apiGateway.deploymentStage.stageName}`,
-      }
-    );
-
-    // make sure api gateway is deployed before web ACL association
-    webACLAssociation.node.addDependency(apiGateway);
 
     //CfnOutput is used to log API Gateway URL and S3 bucket name to console
     new CfnOutput(this, "APIGatewayUrl", {
