@@ -1,7 +1,3 @@
-Great idea 👍 — your current README is solid, but it’s missing all the gotchas we just worked through. Here’s an **updated version** with improved prerequisites, clearer step-by-step deployment, and troubleshooting tips that match what you hit:
-
----
-
 # Contextual Chatbot with Amazon Bedrock Knowledge Bases
 
 This project provides a fully deployable, self-contained contextual chatbot application using Amazon Bedrock Knowledge Bases. It features a complete backend infrastructure defined in AWS CDK and a simple React frontend.
@@ -135,5 +131,6 @@ Make sure you have these installed/configured first:
   ```
 
   Or set `export AWS_DEFAULT_REGION=us-west-2` before deploying.
+
 
 
