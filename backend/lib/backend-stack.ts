@@ -136,9 +136,49 @@ export class BackendStack extends Stack {
       }),
     });
 
+    /** S3 Ingest Lambda for S3 data source */
+
+    const lambdaIngestionJob = new NodejsFunction(this, "IngestionJob", {
+      runtime: Runtime.NODEJS_20_X,
+      entry: join(__dirname, "../lambda/ingest/index.js"),
+      functionName: `start-ingestion-trigger`,
+      timeout: Duration.minutes(15),
+      environment: {
+        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
+        DATA_SOURCE_ID: s3DataSource.dataSourceId,
+        BUCKET_ARN: docsBucket.bucketArn,
+      },
+    });
+
     const s3PutEventSource = new S3EventSource(docsBucket, {
       events: [s3.EventType.OBJECT_CREATED_PUT],
     });
+
+    // Grant necessary permissions before adding event source
+    docsBucket.grantRead(lambdaIngestionJob);
+    
+    lambdaIngestionJob.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:StartIngestionJob"],
+        resources: [knowledgeBase.knowledgeBaseArn, docsBucket.bucketArn],
+      })
+    );
+
+    // Add bucket policy to allow notification configuration
+    docsBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: "AllowBucketNotificationConfiguration",
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ArnPrincipal(`arn:aws:iam::${Stack.of(this).account}:root`)],
+        actions: [
+          "s3:PutBucketNotification",
+          "s3:GetBucketNotification",
+        ],
+        resources: [docsBucket.bucketArn],
+      })
+    );
+
+    lambdaIngestionJob.addEventSource(s3PutEventSource);
 
     /** Web Crawler for bedrock data Source */
 
@@ -172,29 +212,6 @@ export class BackendStack extends Stack {
         serviceToken: webDataSourceProvider.serviceToken,
         resourceType: "Custom::BedrockWebDataSource",
       }
-    );
-
-    /** S3 Ingest Lambda for S3 data source */
-
-    const lambdaIngestionJob = new NodejsFunction(this, "IngestionJob", {
-      runtime: Runtime.NODEJS_20_X,
-      entry: join(__dirname, "../lambda/ingest/index.js"),
-      functionName: `start-ingestion-trigger`,
-      timeout: Duration.minutes(15),
-      environment: {
-        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
-        DATA_SOURCE_ID: s3DataSource.dataSourceId,
-        BUCKET_ARN: docsBucket.bucketArn,
-      },
-    });
-
-    lambdaIngestionJob.addEventSource(s3PutEventSource);
-
-    lambdaIngestionJob.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:StartIngestionJob"],
-        resources: [knowledgeBase.knowledgeBaseArn, docsBucket.bucketArn],
-      })
     );
 
     /** Web crawler ingest Lambda */
