@@ -38,48 +38,9 @@ export const QAHeader = (props) => {
     <div>
       <Typography
         variant="overline"
-        sx={{ width: "100%", paddingBottom: "25px" }}
+        sx={{ width: "100%", paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}
       >
-        1. {isAutoConfigured ? "API URL (Auto-configured):" : "Input your base url here:"}
-      </Typography>
-      {isAutoConfigured && (
-        <Alert severity="success" sx={{ marginBottom: "10px" }}>
-          API URL has been automatically configured during deployment.
-        </Alert>
-      )}
-      <OutlinedInput
-        id="standard-basic"
-        value={url}
-        sx={{ width: "100%" }}
-        name="Base Url"
-        readOnly={isAutoConfigured}
-        disabled={isAutoConfigured}
-        onChange={(event) => setUrl(event.target?.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="https://example.execute-api.example.amazonaws.com/example/"
-        endAdornment={
-          !isAutoConfigured && (
-            <InputAdornment position="end">
-              <IconButton
-                color="primary"
-                onClick={() => setBaseUrl(url)}
-                onMouseDown={() => setBaseUrl(url)}
-              >
-                <InputIcon />
-              </IconButton>
-            </InputAdornment>
-          )
-        }
-      />
-      <br></br>
-      <br></br>
-      <Divider />
-      <br></br>
-      <Typography
-        variant="overline"
-        sx={{ width: "100%", paddingBottom: "10px" }}
-      >
-        2. Select a model
+        1. Select a model
       </Typography>
       <Alert severity="info">
         Make sure to check in your AWS console that you have access to the

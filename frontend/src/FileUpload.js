@@ -116,13 +116,9 @@ const FileUpload = ({ baseUrl }) => {
   };
 
   return (
-    <Box sx={{ width: "100%", mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Upload Documents
-      </Typography>
-      <Typography variant="body2" color="text.secondary" gutterBottom>
-        Upload documents to be used as knowledge base data sources. Supported
-        formats: PDF, TXT, DOCX, MD
+    <Box sx={{ width: "100%", mt: 1 }}>
+      <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+        Upload documents (PDF, TXT, DOCX, MD) to build your knowledge base
       </Typography>
 
       <Paper
@@ -131,7 +127,14 @@ const FileUpload = ({ baseUrl }) => {
           p: 3,
           mt: 2,
           textAlign: "center",
-          backgroundColor: "background.default",
+          backgroundColor: "#f8f9fa",
+          border: "2px dashed #d0d7de",
+          borderRadius: 2,
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            borderColor: '#FF9900',
+            backgroundColor: '#fff8f0',
+          },
         }}
       >
         <input

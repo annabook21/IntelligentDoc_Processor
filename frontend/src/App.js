@@ -158,17 +158,42 @@ const App = (props) => {
         alignItems: "center",
         minHeight: "100vh",
         padding: "30px",
-        backgroundColor: "#f0f0f0",
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       }}
     >
       <Paper
+        elevation={3}
         sx={{
-          padding: 8,
-          maxWidth: 600,
+          padding: 6,
+          maxWidth: 700,
+          borderRadius: 4,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          backdropFilter: 'blur(10px)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
         }}
       >
-        <Typography variant="h5" sx={{ textAlign: "center" }}>
-          AWS Q&A
+        <Typography 
+          variant="h4" 
+          sx={{ 
+            textAlign: "center",
+            fontWeight: 600,
+            background: 'linear-gradient(45deg, #FF9900 30%, #232F3E 90%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            mb: 1
+          }}
+        >
+          AWS Contextual Chatbot Demo
+        </Typography>
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            textAlign: "center", 
+            color: "text.secondary",
+            mb: 3
+          }}
+        >
+          Powered by Amazon Bedrock Knowledge Bases
         </Typography>
         <br></br>
         <br></br>
@@ -189,8 +214,8 @@ const App = (props) => {
           />
           <Divider sx={{ my: 3 }} />
 
-          <Typography variant="overline" sx={{ paddingBottom: "10px" }}>
-            3. Upload Documents (Optional):
+          <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
+            2. Upload Documents (Optional):
           </Typography>
           <FileUpload baseUrl={baseUrl} />
           
@@ -205,7 +230,7 @@ const App = (props) => {
               paddingTop: "20px",
             }}
           >
-            <Typography variant="overline">4. Ask a question:</Typography>
+            <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>3. Ask a question:</Typography>
             <Button
               disabled={history.length === 0}
               startIcon={<DeleteIcon />}
