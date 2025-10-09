@@ -30,11 +30,29 @@ exports.handler =
             knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID,
             //Claude Instant v1.2 is a fast, affordable yet still very capable model, which can handle a range of tasks including casual dialogue, text analysis, summarization, and document question-answering.
             modelArn: modelId ? `arn:aws:bedrock:${process.env.AWS_REGION}::foundation-model/${modelId}` : `arn:aws:bedrock:${process.env.AWS_REGION}::foundation-model/anthropic.claude-instant-v1`,
+            generationConfiguration: {
+              guardrailConfiguration: {
+                guardrailId: process.env.GUARDRAIL_ID,
+                guardrailVersion: process.env.GUARDRAIL_VERSION,
+              },
+            },
           },
         },
       };
       const command = new RetrieveAndGenerateCommand(input);
       const response = await client.send(command);
+      
+      // Check if guardrail blocked the request
+      if (response.guardrailAction === 'INTERVENED') {
+        console.log('⚠️ Guardrail blocked content');
+        return makeResults(
+          200, 
+          "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
+          null,
+          response.sessionId
+        );
+      }
+      
       console.log('query response citation', response.citations);
       response.citations.forEach((c) => console.log("generatedResponsePart: ", c.generatedResponsePart, " retrievedReferences: ", c.retrievedReferences ))
       const location = response.citations[0]?.retrievedReferences[0]?.location

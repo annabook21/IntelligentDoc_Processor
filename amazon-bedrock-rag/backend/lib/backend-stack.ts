@@ -30,6 +30,40 @@ export class BackendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
+    /** Bedrock Guardrails for Content Safety */
+    const guardrail = new bedrock.Guardrail(this, "ChatbotGuardrail", {
+      name: "chatbot-content-filter",
+      description: "Content filtering for harmful or inappropriate inputs/outputs",
+      blockedInputMessaging:
+        "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
+      blockedOutputsMessaging:
+        "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
+      contentPolicyConfig: {
+        filtersConfig: [
+          {
+            type: bedrock.GuardrailContentFilterType.SEXUAL,
+            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+          },
+          {
+            type: bedrock.GuardrailContentFilterType.VIOLENCE,
+            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+          },
+          {
+            type: bedrock.GuardrailContentFilterType.HATE,
+            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+          },
+          {
+            type: bedrock.GuardrailContentFilterType.INSULTS,
+            inputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
+            outputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
+          },
+        ],
+      },
+    });
+
     /** Knowledge Base */
 
     const knowledgeBase = new bedrock.VectorKnowledgeBase(
@@ -298,6 +332,8 @@ export class BackendStack extends Stack {
       timeout: Duration.seconds(29),
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
+        GUARDRAIL_ID: guardrail.guardrailId,
+        GUARDRAIL_VERSION: "DRAFT",
       },
     });
 
@@ -307,6 +343,7 @@ export class BackendStack extends Stack {
           "bedrock:RetrieveAndGenerate",
           "bedrock:Retrieve",
           "bedrock:InvokeModel",
+          "bedrock:ApplyGuardrail",
         ],
         resources: ["*"],
       })
@@ -421,6 +458,16 @@ export class BackendStack extends Stack {
 
     new CfnOutput(this, "DocsBucketName", {
       value: docsBucket.bucketName,
+    });
+
+    new CfnOutput(this, "GuardrailId", {
+      value: guardrail.guardrailId,
+      description: "Bedrock Guardrail ID for content filtering",
+    });
+
+    new CfnOutput(this, "GuardrailVersion", {
+      value: "DRAFT",
+      description: "Guardrail version (DRAFT for testing, create version for production)",
     });
 
     /** Frontend */
