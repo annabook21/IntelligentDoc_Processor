@@ -16,20 +16,33 @@ import FileUpload from "./FileUpload";
 import {modelList} from "./RAGModels"
 import Alert from "@mui/material/Alert";
 
-// Add a new component for the status indicator
+// Component to display the live status of document ingestion
 const IngestionStatus = ({ status }) => {
-  if (!status || status === 'COMPLETE' || status === 'NO_JOBS_FOUND') {
+  // Don't render anything if there's no status or if it's an old job
+  if (!status || status === 'NO_JOBS_FOUND') {
     return null;
   }
 
-  let message = "Processing document...";
-  let severity = "info";
+  let message;
+  let severity;
 
-  if (status === 'IN_PROGRESS' || status === 'STARTING') {
-    message = "⏳ Ingesting new document... The chatbot will have context once this is complete.";
-  } else if (status === 'FAILED') {
-    message = "❌ Ingestion failed. Please check the file and try again.";
-    severity = "error";
+  switch (status) {
+    case 'STARTING':
+    case 'IN_PROGRESS':
+      message = "⏳ Ingesting new document... The chatbot will have context once this is complete.";
+      severity = "info";
+      break;
+    case 'COMPLETE':
+      message = "✅ Ingestion complete! It may take a minute for the new context to become available.";
+      severity = "success";
+      break;
+    case 'FAILED':
+      message = "❌ Ingestion failed. Please check the document and try uploading again.";
+      severity = "error";
+      break;
+    default:
+      // Don't render for unknown statuses
+      return null;
   }
 
   return (
@@ -68,7 +81,7 @@ const App = (props) => {
       });
   }, []);
 
-  // Polling logic for ingestion status
+  // Effect for polling the ingestion status endpoint
   useEffect(() => {
     let intervalId;
 
@@ -76,24 +89,28 @@ const App = (props) => {
       if (!baseUrl) return;
       try {
         const response = await fetch(`${baseUrl}ingestion-status`);
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         setIngestionStatus(data.status);
 
+        // If the job is finished (complete or failed), stop polling
         if (data.status === 'COMPLETE' || data.status === 'FAILED') {
           clearInterval(intervalId);
-          // Hide the status message after a few seconds
-          setTimeout(() => setIngestionStatus(null), 5000);
+          // Hide the status message after 20 seconds to ensure the user sees it
+          setTimeout(() => setIngestionStatus(null), 20000);
         }
       } catch (err) {
         console.error("Error checking ingestion status:", err);
-        clearInterval(intervalId);
+        clearInterval(intervalId); // Stop polling on error
       }
     };
 
+    // Start polling only when an ingestion is known to be in progress
     if (ingestionStatus === 'STARTING' || ingestionStatus === 'IN_PROGRESS') {
       intervalId = setInterval(checkStatus, 5000); // Poll every 5 seconds
     }
 
+    // Cleanup function to clear the interval when the component unmounts or dependencies change
     return () => clearInterval(intervalId);
   }, [ingestionStatus, baseUrl]);
 
@@ -271,7 +288,7 @@ const App = (props) => {
           <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
             2. Upload Documents (Optional):
           </Typography>
-          <FileUpload baseUrl={baseUrl} onUploadComplete={() => setIngestionStatus('STARTING')} />
+          <FileUpload baseUrl={baseUrl} onUploadStart={() => setIngestionStatus('STARTING')} />
           <IngestionStatus status={ingestionStatus} />
           
           <Divider sx={{ my: 3 }} />
