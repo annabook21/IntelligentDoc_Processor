@@ -214,67 +214,6 @@ export class BackendStack extends Stack {
       })
     );
 
-    /** Web Crawler for bedrock data Source */
-
-    const createWebDataSourceLambda = new NodejsFunction(
-      this,
-      "CreateWebDataSourceHandler",
-      {
-        runtime: Runtime.NODEJS_18_X,
-        entry: join(__dirname, "../lambda/dataSource/index.js"),
-        functionName: `create-web-data-source`,
-        timeout: Duration.minutes(1),
-        environment: {
-          KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
-        },
-      }
-    );
-
-    const webDataSourceProvider = new cr.Provider(
-      this,
-      "WebDataSourceProvider",
-      {
-        onEventHandler: createWebDataSourceLambda,
-        logRetention: logs.RetentionDays.ONE_DAY,
-      }
-    );
-
-    const createWebDataSourceResource = new CustomResource(
-      this,
-      "WebDataSourceResource",
-      {
-        serviceToken: webDataSourceProvider.serviceToken,
-        resourceType: "Custom::BedrockWebDataSource",
-      }
-    );
-
-    /** Web crawler ingest Lambda */
-
-    const lambdaCrawlJob = new NodejsFunction(this, "CrawlJob", {
-      runtime: Runtime.NODEJS_20_X,
-      entry: join(__dirname, "../lambda/crawl/index.js"),
-      functionName: `start-web-crawl-trigger`,
-      timeout: Duration.minutes(15),
-      environment: {
-        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
-        DATA_SOURCE_ID:
-          createWebDataSourceResource.getAttString("DataSourceId"),
-      },
-    });
-
-    lambdaCrawlJob.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:StartIngestionJob"],
-        resources: [knowledgeBase.knowledgeBaseArn],
-      })
-    );
-
-    const rule = new events.Rule(this, "ScheduleWebCrawlRule", {
-      schedule: events.Schedule.rate(Duration.days(1)), // Adjust the cron expression as needed
-    });
-
-    rule.addTarget(new targets.LambdaFunction(lambdaCrawlJob));
-
     /** Lambda to update the list of seed urls in Web crawler data source*/
 
     const lambdaUpdateWebUrls = new NodejsFunction(this, "UpdateWebUrls", {
@@ -385,14 +324,6 @@ export class BackendStack extends Stack {
     apiGateway.root
       .addResource("docs")
       .addMethod("POST", new apigw.LambdaIntegration(lambdaQuery));
-
-    apiGateway.root
-      .addResource("web-urls")
-      .addMethod("POST", new apigw.LambdaIntegration(lambdaUpdateWebUrls));
-
-    apiGateway.root
-      .addResource("urls")
-      .addMethod("GET", new apigw.LambdaIntegration(lambdaGetWebUrls));
 
     /** Lambda for file upload pre-signed URLs */
 

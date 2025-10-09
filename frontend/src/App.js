@@ -11,7 +11,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import LoadingSpinner from "./Spinner";
 import IconButton from "@mui/material/IconButton";
 import SendIcon from "@mui/icons-material/Send";
-import UrlSourcesForm from "./WebUrlsForm";
 import FileUpload from "./FileUpload";
 import Alert from "@mui/material/Alert";
 
@@ -57,12 +56,6 @@ const App = (props) => {
   const [question, setQuestion] = useState('');
   const [spinner, setSpinner] = useState(false);
   const [sessionId, setSessionId] = useState(undefined);
-  const [sourceUrlInfo, setSourceUrlInfo] = useState({
-    exclusionFilters: [],
-    inclusionFilters: [],
-    seedUrlList: [],
-  });
-  const [hasWebDataSource, setHasWebDataSource] = useState(false);
   const [ingestionStatus, setIngestionStatus] = useState(null);
 
   // Load API URL from config.json at startup
@@ -112,34 +105,6 @@ const App = (props) => {
     return () => clearInterval(intervalId);
   }, [ingestionStatus, baseUrl]);
 
-  useEffect(() => {
-    if (!baseUrl) {
-      return;
-    }
-    const getWebSourceConfiguration = async () => {
-      fetch(baseUrl + "urls", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          setSourceUrlInfo({
-            exclusionFilters: data.exclusionFilters ?? [],
-            inclusionFilters: data.inclusionFilters ?? [],
-            seedUrlList: data.seedUrlList ?? [],
-          });
-          setHasWebDataSource(true);
-        })
-        .catch((err) => {
-          console.log("err", err);
-        });
-
-    };
-    getWebSourceConfiguration();
-  }, [baseUrl]);
-
   const handleSendQuestion = () => {
     setSpinner(true);
 
@@ -188,30 +153,6 @@ const App = (props) => {
   };
 
   const onClearHistory = () => setHistory([]);
-
-  const handleUpdateUrls = async (
-    urls,
-    newExclusionFilters,
-    newInclusionFilters
-  ) => {
-    try {
-      const response = await fetch(baseUrl + "web-urls", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          urlList: [...new Set(urls)],
-          exclusionFilters: [...new Set(newExclusionFilters)],
-          inclusionFilters: [...new Set(newInclusionFilters)],
-        }),
-      });
-      return !!response.ok;
-    } catch (error) {
-      console.log("Error:", error);
-      return false;
-    }
-  };
 
   return (
     <Box
@@ -336,18 +277,6 @@ const App = (props) => {
             <SendIcon />
           </IconButton>
         </Box>
-        {hasWebDataSource ? (
-          <Box sx={{ paddingTop: "15px" }}>
-            <UrlSourcesForm
-              exclusionFilters={sourceUrlInfo.exclusionFilters}
-              inclusionFilters={sourceUrlInfo.inclusionFilters}
-              seedUrlList={sourceUrlInfo.seedUrlList.map(
-                (urlObj) => urlObj.url
-              )}
-              handleUpdateUrls={handleUpdateUrls}
-            />
-          </Box>
-        ) : null}
       </Paper>
     </Box>
   );
