@@ -93,56 +93,29 @@ Make sure you have these installed/configured first:
    ```
 
    This outputs the CloudFormation template so you can preview what will be deployed.
-5. **Enable Bedrock Model Access** ⚠️ **CRITICAL STEP**
+### 5. CRITICAL STEP 5: Enable Bedrock Model Access
 
-   Before deployment, you **must** enable access to Bedrock models in your AWS account:
+For the chatbot to work, you MUST enable access to the specific foundation models in the Amazon Bedrock console.
 
-   a. Go to [AWS Bedrock Console → Model access](https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess)
-   
-   b. Click **Edit** or **Manage model access**
-   
-   c. Enable these models:
-   
-      - ✅ **Amazon Titan Embeddings G1 - Text** (`amazon.titan-embed-text-v1`) - **REQUIRED for document ingestion**
-      - ✅ **Amazon Titan Text Premier** - Optional, for queries
-      - ✅ **Anthropic Claude 3 Sonnet** - Optional, for queries
-      - ✅ **Anthropic Claude Instant** - Default model for queries
-   
-   d. Click **Save changes** or **Request model access**
-   
-   e. Wait 1-2 minutes for access to be granted
+1.  Navigate to the [Amazon Bedrock console](https://console.aws.amazon.com/bedrock/home) in your AWS account.
+2.  In the bottom-left corner, click on **Model access**.
+3.  Click **Manage model access** in the top-right.
+4.  Enable access for the following models:
+    *   **Titan Embeddings G1 - Text:** `amazon.titan-embed-text-v1` (for the Knowledge Base)
+    *   **Anthropic Claude 3 Sonnet:** `anthropic.claude-3-sonnet-20240229-v1:0` (for generating answers)
 
-   **Note:** Without Titan Embeddings enabled, document ingestion will fail!
-
-6. **Deploy**
-
-   ```bash
-   cdk deploy
-   ```
-
-   This creates all the resources (API Gateway, S3 buckets, Lambdas, CloudFront, etc.).
-
----
+**FAILURE TO ENABLE THESE MODELS WILL CAUSE 500 ERRORS.**
 
 ## Usage
 
-1. **Access the UI**
-   - Copy the **CloudFrontURL** from the deployment output
-   - Open it in your browser
-   - The API URL is **automatically configured** - no manual setup needed!
+1.  After a successful `cdk deploy`, the CloudFormation outputs will display the `CloudFrontURL`.
+2.  Navigate to this URL in your browser.
+3.  The API URL is **auto-configured**. The UI will show "API URL (Auto-configured)".
+4.  Use the "Upload Documents" section to upload one or more files (PDF, TXT, DOCX, MD) to the knowledge base.
+5.  Wait for the ingestion status to show "✅ Ingestion complete!". It may take an additional minute for the context to become available.
+6.  Ask a question related to the documents you uploaded.
 
-2. **Upload Documents**
-   - Use the **file upload feature** in the UI (Step 3)
-   - Supported formats: PDF, TXT, DOCX, MD
-   - Files are automatically processed and added to the knowledge base
-   - Wait 1-2 minutes for ingestion to complete
-
-3. **Ask Questions**
-   - Select a model (or use the default)
-   - Type your question
-   - The chatbot returns answers with citations from your uploaded documents
-
----
+The chatbot will now answer based on the context provided in your documents.
 
 ## Troubleshooting
 

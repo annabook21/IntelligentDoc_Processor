@@ -19,7 +19,7 @@ exports.handler =
   .use(httpJsonBodyParser())
   .use(httpHeaderNormalizer())
   .handler(async (event, context) => {
-    const { question, requestSessionId, modelId } = event.body;
+    const { question, requestSessionId } = event.body;
     
     try {
       // 1. Retrieve relevant passages from the Knowledge Base
@@ -39,16 +39,22 @@ exports.handler =
       const formattedContext = retrievedChunks.join("\n\n");
       const prompt = `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`;
       
-      const bedrockModelId = modelId || "anthropic.claude-instant-v1";
+      const bedrockModelId = "anthropic.claude-3-sonnet-20240229-v1:0"; // Hardcoded to Claude 3 Sonnet
       
-      // 3. Invoke the language model with the Guardrail
+      // 3. Invoke the language model with the Guardrail using the Messages API format for Claude 3
       const invokeInput = {
         modelId: bedrockModelId,
         contentType: "application/json",
         accept: "application/json",
         body: JSON.stringify({
-          prompt: `\n\nHuman: ${prompt}\n\nAssistant:`,
-          max_tokens_to_sample: 1000,
+          anthropic_version: "bedrock-2023-05-31",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`
+            }
+          ]
         }),
         guardrailIdentifier: process.env.GUARDRAIL_ID,
         guardrailVersion: process.env.GUARDRAIL_VERSION,
@@ -62,12 +68,17 @@ exports.handler =
       // 4. Handle Guardrail interventions on the output
       if (invokeResponse.amazonBedrockGuardrailAction === 'INTERVENED') {
           console.warn('🛡️ Guardrail blocked model output.');
-          // The body will contain the custom blocked message from the Guardrail
-          return makeResults(200, responseBody.completion, null, null);
+          // The body will contain the custom blocked message from the Guardrail.
+          // For Messages API, the blocked output is in a different format.
+          const blockedMessage = responseBody.content[0].text;
+          return makeResults(200, blockedMessage, null, null);
       }
 
+      // Extract the response text from the Messages API format
+      const responseText = responseBody.content[0].text;
+
       // We don't get citations back in this manual flow, so we return null
-      return makeResults(200, responseBody.completion, null, null);
+      return makeResults(200, responseText, null, null);
       
     } catch (err) {
       // Check if the error is a Guardrail blocking the user's input

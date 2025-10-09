@@ -331,14 +331,11 @@ export class BackendStack extends Stack {
       })
     );
 
-    // Restrict InvokeModel to specific foundation models
+    // Restrict model invocation to the specific hardcoded foundation model
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:InvokeModel"],
         resources: [
-          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0`,
-          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-instant-v1`,
-          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
           `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
         ],
       })

@@ -13,7 +13,6 @@ import IconButton from "@mui/material/IconButton";
 import SendIcon from "@mui/icons-material/Send";
 import UrlSourcesForm from "./WebUrlsForm";
 import FileUpload from "./FileUpload";
-import {modelList} from "./RAGModels"
 import Alert from "@mui/material/Alert";
 
 // Component to display the live status of document ingestion
@@ -54,7 +53,6 @@ const IngestionStatus = ({ status }) => {
 
 const App = (props) => {
   const [history, setHistory] = useState([]);
-  const [selectedModel, setSelectedModel] = useState(undefined);
   const [baseUrl, setBaseUrl] = useState(undefined);
   const [question, setQuestion] = useState('');
   const [spinner, setSpinner] = useState(false);
@@ -153,7 +151,6 @@ const App = (props) => {
       body: JSON.stringify({
         requestSessionId: sessionId,
         question: question,
-        modelId: selectedModel?.modelId,
       }),
     })
       .then((res) => res.json())
@@ -216,11 +213,6 @@ const App = (props) => {
     }
   };
 
-  const handleChangeModel = (model) => {
-    setSelectedModel(model);
-    setSessionId(undefined)
-  }
-
   return (
     <Box
       sx={{
@@ -279,9 +271,6 @@ const App = (props) => {
           <QAHeader
             setBaseUrl={setBaseUrl}
             baseUrl={baseUrl}
-            modelList={modelList}
-            setSelectedModel={handleChangeModel}
-            selectedModel={selectedModel}
           />
           <Divider sx={{ my: 3 }} />
 
