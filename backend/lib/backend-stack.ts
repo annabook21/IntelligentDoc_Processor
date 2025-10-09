@@ -17,6 +17,11 @@ import { S3EventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as cloudwatch_actions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
@@ -28,6 +33,40 @@ import { join } from "path";
 export class BackendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
+
+    /** Bedrock Guardrails for Content Safety */
+    const guardrail = new bedrock.Guardrail(this, "ChatbotGuardrail", {
+      name: "chatbot-content-filter",
+      description: "Content filtering for harmful or inappropriate inputs/outputs",
+      blockedInputMessaging:
+        "I cannot process that request. Please rephrase your question.",
+      blockedOutputsMessaging:
+        "I cannot provide that information. Please try a different question.",
+      contentPolicyConfig: {
+        filtersConfig: [
+          {
+            type: bedrock.GuardrailContentFilterType.SEXUAL,
+            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+          },
+          {
+            type: bedrock.GuardrailContentFilterType.VIOLENCE,
+            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+          },
+          {
+            type: bedrock.GuardrailContentFilterType.HATE,
+            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+          },
+          {
+            type: bedrock.GuardrailContentFilterType.INSULTS,
+            inputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
+            outputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
+          },
+        ],
+      },
+    });
 
     /** Knowledge Base */
 
@@ -98,6 +137,19 @@ export class BackendStack extends Stack {
       }),
     });
 
+    /** SNS Topic for Alerts */
+    const alertTopic = new sns.Topic(this, "AlertTopic", {
+      displayName: "Chatbot Processing Alerts",
+      topicName: "chatbot-alerts",
+    });
+
+    /** Dead Letter Queue for Failed Ingestions */
+    const ingestionDLQ = new sqs.Queue(this, "IngestionDLQ", {
+      queueName: "ingestion-failures-dlq",
+      retentionPeriod: Duration.days(14),
+      visibilityTimeout: Duration.minutes(5),
+    });
+
     /** S3 Ingest Lambda for S3 data source */
 
     const lambdaIngestionJob = new NodejsFunction(this, "IngestionJob", {
@@ -105,6 +157,9 @@ export class BackendStack extends Stack {
       entry: join(__dirname, "../lambda/ingest/index.js"),
       functionName: `start-ingestion-trigger`,
       timeout: Duration.minutes(15),
+      deadLetterQueue: ingestionDLQ,
+      retryAttempts: 2,
+      tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
         DATA_SOURCE_ID: s3DataSource.dataSourceId,
@@ -273,19 +328,30 @@ export class BackendStack extends Stack {
       functionName: `query-bedrock-llm`,
       //query lambda duration set to match API Gateway max timeout
       timeout: Duration.seconds(29),
+      tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
       },
     });
 
+    // Restrict Bedrock permissions to specific Knowledge Base (least privilege)
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: [
-          "bedrock:RetrieveAndGenerate",
-          "bedrock:Retrieve",
-          "bedrock:InvokeModel",
+        actions: ["bedrock:RetrieveAndGenerate", "bedrock:Retrieve"],
+        resources: [knowledgeBase.knowledgeBaseArn],
+      })
+    );
+
+    // Restrict model invocation to specific foundation models
+    lambdaQuery.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-instant-v1`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
         ],
-        resources: ["*"],
       })
     );
 
@@ -308,6 +374,7 @@ export class BackendStack extends Stack {
       entry: join(__dirname, "../lambda/upload/index.js"),
       functionName: `generate-upload-url`,
       timeout: Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
       environment: {
         DOCS_BUCKET_NAME: docsBucket.bucketName,
       },
@@ -336,6 +403,51 @@ export class BackendStack extends Stack {
       },
     });
 
+    /** CloudWatch Alarms for Monitoring */
+
+    // Alarm for Query Lambda errors
+    const queryErrorAlarm = new cloudwatch.Alarm(this, "QueryLambdaErrors", {
+      metric: lambdaQuery.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 5,
+      evaluationPeriods: 1,
+      alarmDescription: "Alert when Query Lambda has >5 errors in 5 minutes",
+      alarmName: "chatbot-query-errors",
+    });
+    queryErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
+
+    // Alarm for Ingestion Lambda errors
+    const ingestionErrorAlarm = new cloudwatch.Alarm(
+      this,
+      "IngestionLambdaErrors",
+      {
+        metric: lambdaIngestionJob.metricErrors({
+          period: Duration.minutes(5),
+        }),
+        threshold: 3,
+        evaluationPeriods: 1,
+        alarmDescription:
+          "Alert when Ingestion Lambda has >3 errors in 5 minutes",
+        alarmName: "chatbot-ingestion-errors",
+      }
+    );
+    ingestionErrorAlarm.addAlarmAction(
+      new cloudwatch_actions.SnsAction(alertTopic)
+    );
+
+    // Alarm for messages in DLQ
+    const dlqAlarm = new cloudwatch.Alarm(this, "DLQMessagesAlarm", {
+      metric: ingestionDLQ.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: "Alert when messages appear in DLQ",
+      alarmName: "chatbot-dlq-messages",
+    });
+    dlqAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
+
     //CfnOutput is used to log API Gateway URL and S3 bucket name to console
     new CfnOutput(this, "APIGatewayUrl", {
       value: apiGateway.url,
@@ -344,6 +456,26 @@ export class BackendStack extends Stack {
     new CfnOutput(this, "DocsBucketName", {
       value: docsBucket.bucketName,
       description: "Documents bucket (versioned for data protection)",
+    });
+
+    new CfnOutput(this, "AlertTopicArn", {
+      value: alertTopic.topicArn,
+      description: "SNS topic for monitoring alerts (subscribe for notifications)",
+    });
+
+    new CfnOutput(this, "DLQUrl", {
+      value: ingestionDLQ.queueUrl,
+      description: "Dead Letter Queue for failed ingestions",
+    });
+
+    new CfnOutput(this, "GuardrailId", {
+      value: guardrail.guardrailId,
+      description: "Bedrock Guardrail ID for content filtering",
+    });
+
+    new CfnOutput(this, "GuardrailVersion", {
+      value: "DRAFT",
+      description: "Guardrail version (use DRAFT for testing, create version for production)",
     });
 
     /** Frontend */
