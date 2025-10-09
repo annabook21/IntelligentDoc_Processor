@@ -18,12 +18,14 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as awsbedrock from "aws-cdk-lib/aws-bedrock";
 import { join } from "path";
 
 export class BackendStack extends Stack {
@@ -31,7 +33,7 @@ export class BackendStack extends Stack {
     super(scope, id, props);
 
     /** Bedrock Guardrails for Content Safety */
-    const guardrail = new bedrock.Guardrail(this, "ChatbotGuardrail", {
+    const guardrail = new awsbedrock.CfnGuardrail(this, "ChatbotGuardrail", {
       name: "chatbot-content-filter",
       description: "Content filtering for harmful or inappropriate inputs/outputs",
       blockedInputMessaging:
@@ -41,24 +43,24 @@ export class BackendStack extends Stack {
       contentPolicyConfig: {
         filtersConfig: [
           {
-            type: bedrock.GuardrailContentFilterType.SEXUAL,
-            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
-            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            type: "SEXUAL",
+            inputStrength: "HIGH",
+            outputStrength: "HIGH",
           },
           {
-            type: bedrock.GuardrailContentFilterType.VIOLENCE,
-            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
-            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            type: "VIOLENCE",
+            inputStrength: "HIGH",
+            outputStrength: "HIGH",
           },
           {
-            type: bedrock.GuardrailContentFilterType.HATE,
-            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
-            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            type: "HATE",
+            inputStrength: "HIGH",
+            outputStrength: "HIGH",
           },
           {
-            type: bedrock.GuardrailContentFilterType.INSULTS,
-            inputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
-            outputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
+            type: "INSULTS",
+            inputStrength: "MEDIUM",
+            outputStrength: "MEDIUM",
           },
         ],
       },
@@ -208,6 +210,13 @@ export class BackendStack extends Stack {
       }
     );
 
+    /** Dead Letter Queue for Failed Ingestions */
+    const ingestionDLQ = new sqs.Queue(this, "IngestionDLQ", {
+      queueName: "ingestion-failures-dlq",
+      retentionPeriod: Duration.days(14), // Keep failed messages for 2 weeks
+      visibilityTimeout: Duration.minutes(5),
+    });
+
     /** S3 Ingest Lambda for S3 data source */
 
     const lambdaIngestionJob = new NodejsFunction(this, "IngestionJob", {
@@ -332,7 +341,7 @@ export class BackendStack extends Stack {
       timeout: Duration.seconds(29),
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
-        GUARDRAIL_ID: guardrail.guardrailId,
+        GUARDRAIL_ID: guardrail.attrGuardrailId,
         GUARDRAIL_VERSION: "DRAFT",
       },
     });
@@ -461,13 +470,18 @@ export class BackendStack extends Stack {
     });
 
     new CfnOutput(this, "GuardrailId", {
-      value: guardrail.guardrailId,
+      value: guardrail.attrGuardrailId,
       description: "Bedrock Guardrail ID for content filtering",
     });
 
     new CfnOutput(this, "GuardrailVersion", {
-      value: "DRAFT",
+      value: guardrail.attrVersion,
       description: "Guardrail version (DRAFT for testing, create version for production)",
+    });
+
+    new CfnOutput(this, "DLQUrl", {
+      value: ingestionDLQ.queueUrl,
+      description: "Dead Letter Queue for failed ingestions",
     });
 
     /** Frontend */
