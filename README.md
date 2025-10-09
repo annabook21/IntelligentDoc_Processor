@@ -1,12 +1,28 @@
-# Contextual Chatbot with Amazon Bedrock Knowledge Bases
+# AWS Contextual Chatbot Demo with Amazon Bedrock
 
-This project provides a fully deployable, self-contained contextual chatbot application using Amazon Bedrock Knowledge Bases. It features a complete backend infrastructure defined in AWS CDK and a simple React frontend.
+This repository contains a demonstration of a contextual chatbot using Amazon Bedrock Knowledge Bases. It provides a serverless architecture that is easily deployable with the AWS CDK.
+
+---
+
+⚠️ **CRITICAL PRE-DEPLOYMENT STEP: ENABLE BEDROCK MODEL ACCESS**
+--------------------------------------------------------------------
+
+Before you deploy this application, you **MUST** enable access to the required foundation models in your AWS account. **Failure to do so will cause the deployment to fail with an error.**
+
+1.  Navigate to the **[Amazon Bedrock console](https://console.aws.amazon.com/bedrock/home)** in your AWS account.
+2.  In the bottom-left corner, click on **Model access**.
+3.  Click **Manage model access** in the top-right.
+4.  Enable access for the following two models:
+    *   ✅ **Titan Embeddings G1 - Text:** `amazon.titan-embed-text-v1` (Used for the Knowledge Base)
+    *   ✅ **Anthropic Claude 3 Sonnet:** `anthropic.claude-3-sonnet-20240229-v1:0` (Used for generating answers)
+
+Click "Save changes" and wait for access to be granted before proceeding with deployment.
 
 ---
 
 ## Architecture
 
-The entire application is defined as Infrastructure as Code (IaC), allowing for easy and repeatable deployments. The architecture consists of a serverless backend, a document ingestion pipeline, and a web-based frontend.
+The architecture is fully serverless and event-driven:
 
 ```mermaid
 graph TD

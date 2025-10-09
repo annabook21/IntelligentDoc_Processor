@@ -35,6 +35,37 @@ export class BackendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
+    /** Pre-flight check for Bedrock model access */
+    const modelCheckLambda = new NodejsFunction(
+      this,
+      "BedrockModelCheckHandler",
+      {
+        runtime: Runtime.NODEJS_20_X,
+        entry: join(__dirname, "../lambda/model-check/index.js"),
+        functionName: `bedrock-model-access-check`,
+        timeout: Duration.minutes(1),
+      }
+    );
+
+    modelCheckLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ListFoundationModels"],
+        resources: ["*"], // This action does not support resource-level permissions
+      })
+    );
+
+    const modelCheckProvider = new cr.Provider(
+      this,
+      "BedrockModelCheckProvider",
+      {
+        onEventHandler: modelCheckLambda,
+      }
+    );
+
+    new CustomResource(this, "BedrockModelCheckResource", {
+      serviceToken: modelCheckProvider.serviceToken,
+    });
+
     /** Bedrock Guardrails for Content Safety */
     const guardrail = new awsbedrock.CfnGuardrail(this, "ChatbotGuardrail", {
       name: "chatbot-content-filter",
