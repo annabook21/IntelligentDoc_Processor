@@ -4,7 +4,6 @@ import {
   Duration,
   CfnOutput,
   RemovalPolicy,
-  ArnFormat,
   CustomResource,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -77,6 +76,17 @@ export class BackendStack extends Stack {
       {
         embeddingsModel: bedrock.BedrockFoundationModel.TITAN_EMBED_TEXT_V1,
       }
+    );
+
+    // Grant Knowledge Base role permission to invoke Bedrock embedding model
+    knowledgeBase.role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/amazon.titan-embed-text-v1`,
+        ],
+      })
     );
 
     /** S3 bucket for Bedrock data source */
@@ -188,7 +198,8 @@ export class BackendStack extends Stack {
       },
     });
 
-    lambdaIngestionJob.addEventSource(s3PutEventSource);
+    // Grant Lambda read access to bucket
+    docsBucket.grantRead(lambdaIngestionJob);
 
     lambdaIngestionJob.addToRolePolicy(
       new iam.PolicyStatement({
@@ -196,6 +207,22 @@ export class BackendStack extends Stack {
         resources: [knowledgeBase.knowledgeBaseArn],
       })
     );
+
+    // Add bucket policy to allow notification configuration
+    docsBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: "AllowBucketNotificationConfiguration",
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ArnPrincipal(`arn:aws:iam::${Stack.of(this).account}:root`)],
+        actions: [
+          "s3:PutBucketNotification",
+          "s3:GetBucketNotification",
+        ],
+        resources: [docsBucket.bucketArn],
+      })
+    );
+
+    lambdaIngestionJob.addEventSource(s3PutEventSource);
 
     /** Web crawler ingest Lambda */
 
@@ -562,6 +589,9 @@ export class BackendStack extends Stack {
     // Deploy the React app to the S3 bucket
     new s3deploy.BucketDeployment(this, "DeployFrontend", {
       sources: [
+        s3deploy.Source.jsonData("config.json", {
+          apiUrl: apiGateway.url,
+        }),
         s3deploy.Source.asset(join(__dirname, "../../frontend"), {
           bundling: {
             image: Runtime.NODEJS_20_X.bundlingImage,
