@@ -31,8 +31,16 @@ exports.handler =
       };
       const retrieveCommand = new RetrieveCommand(retrieveInput);
       const retrievalResponse = await agentClient.send(retrieveCommand);
+      
+      // Extract the retrieved text chunks and the source citation
+      let citation = null;
       const retrievedChunks = retrievalResponse.retrievalResults.map(
-        (result) => result.content.text
+        (result) => {
+          if (!citation) { // Grab the citation from the first result
+            citation = result.location?.s3Location?.uri || null;
+          }
+          return result.content.text;
+        }
       );
 
       // 2. Prepare the prompt for the language model
@@ -78,7 +86,7 @@ exports.handler =
       const responseText = responseBody.content[0].text;
 
       // We don't get citations back in this manual flow, so we return null
-      return makeResults(200, responseText, null, null);
+      return makeResults(200, responseText, citation, null);
       
     } catch (err) {
       // Check if the error is a Guardrail blocking the user's input
