@@ -25,6 +25,7 @@ import * as cr from "aws-cdk-lib/custom-resources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as awsbedrock from "aws-cdk-lib/aws-bedrock";
@@ -167,35 +168,20 @@ export class BackendStack extends Stack {
       },
     });
 
-    const s3PutEventSource = new S3EventSource(docsBucket, {
-      events: [s3.EventType.OBJECT_CREATED_PUT],
-    });
-
-    // Grant necessary permissions before adding event source
+    // Grant Lambda read access to bucket
     docsBucket.grantRead(lambdaIngestionJob);
-    
+
+    docsBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED_PUT,
+      new s3n.LambdaDestination(lambdaIngestionJob)
+    );
+
     lambdaIngestionJob.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:StartIngestionJob"],
-        resources: [knowledgeBase.knowledgeBaseArn, docsBucket.bucketArn],
+        resources: [knowledgeBase.knowledgeBaseArn],
       })
     );
-
-    // Add bucket policy to allow notification configuration
-    docsBucket.addToResourcePolicy(
-      new iam.PolicyStatement({
-        sid: "AllowBucketNotificationConfiguration",
-        effect: iam.Effect.ALLOW,
-        principals: [new iam.ArnPrincipal(`arn:aws:iam::${Stack.of(this).account}:root`)],
-        actions: [
-          "s3:PutBucketNotification",
-          "s3:GetBucketNotification",
-        ],
-        resources: [docsBucket.bucketArn],
-      })
-    );
-
-    lambdaIngestionJob.addEventSource(s3PutEventSource);
 
     /** Web Crawler for bedrock data Source */
 
