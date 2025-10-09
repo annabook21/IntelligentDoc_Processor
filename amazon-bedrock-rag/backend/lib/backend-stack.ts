@@ -11,6 +11,7 @@ import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as uuid from "uuid";
 import { bedrock } from "@cdklabs/generative-ai-cdk-constructs";
 import { S3EventSource } from "aws-cdk-lib/aws-lambda-event-sources";
@@ -224,6 +225,9 @@ export class BackendStack extends Stack {
       entry: join(__dirname, "../lambda/ingest/index.js"),
       functionName: `start-ingestion-trigger`,
       timeout: Duration.minutes(15),
+      deadLetterQueue: ingestionDLQ,
+      retryAttempts: 2,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
         DATA_SOURCE_ID: s3DataSource.dataSourceId,
@@ -339,6 +343,7 @@ export class BackendStack extends Stack {
       functionName: `query-bedrock-llm`,
       //query lambda duration set to match API Gateway max timeout
       timeout: Duration.seconds(29),
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
         GUARDRAIL_ID: guardrail.attrGuardrailId,
