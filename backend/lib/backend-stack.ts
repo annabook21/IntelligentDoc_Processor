@@ -503,17 +503,6 @@ export class BackendStack extends Stack {
       description: "Guardrail version (use DRAFT for testing, create version for production)",
     });
 
-    // This is the definitive fix for the S3 notification race condition.
-    // The CDK's bucket notification handler is a singleton Lambda function that
-    // requires explicit permissions to modify bucket notifications, especially
-    // during stack updates and deletions. This code finds that singleton
-    // and grants it the necessary permissions.
-    const bucketNotificationsHandler = this.node.findChild('BucketNotificationsHandler') as lambda.Function;
-    bucketNotificationsHandler.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['s3:PutBucketNotificationConfiguration', 's3:GetBucketNotificationConfiguration'],
-      resources: [`arn:aws:s3:::*`], // The handler needs broad permissions as it manages all bucket notifications in the stack
-    }));
-
     /** Frontend */
 
     // S3 bucket for the frontend app
