@@ -214,60 +214,6 @@ export class BackendStack extends Stack {
       })
     );
 
-    /** Lambda to update the list of seed urls in Web crawler data source*/
-
-    const lambdaUpdateWebUrls = new NodejsFunction(this, "UpdateWebUrls", {
-      runtime: Runtime.NODEJS_20_X,
-      entry: join(__dirname, "../lambda/webUrlSources/index.js"),
-      functionName: `update-web-crawl-urls`,
-      timeout: Duration.minutes(15),
-      environment: {
-        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
-        DATA_SOURCE_ID:
-          createWebDataSourceResource.getAttString("DataSourceId"),
-        DATA_SOURCE_NAME: "WebCrawlerDataSource",
-      },
-    });
-
-    lambdaUpdateWebUrls.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:GetDataSource", "bedrock:UpdateDataSource"],
-        resources: [knowledgeBase.knowledgeBaseArn],
-      })
-    );
-
-    /** Lambda to get the list of seed urls in Web crawler data source*/
-
-    const lambdaGetWebUrls = new NodejsFunction(this, "GetWebUrls", {
-      runtime: Runtime.NODEJS_20_X,
-      entry: join(__dirname, "../lambda/getUrls/index.js"),
-      functionName: `get-web-crawl-urls`,
-      timeout: Duration.minutes(15),
-      environment: {
-        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
-        DATA_SOURCE_ID:
-          createWebDataSourceResource.getAttString("DataSourceId"),
-      },
-    });
-
-    lambdaGetWebUrls.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:GetDataSource"],
-        resources: [knowledgeBase.knowledgeBaseArn],
-      })
-    );
-
-    createWebDataSourceLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "bedrock:CreateDataSource",
-          "bedrock:UpdateDataSource",
-          "bedrock:DeleteDataSource",
-        ],
-        resources: [knowledgeBase.knowledgeBaseArn],
-      })
-    );
-
     const apiGateway = new apigw.RestApi(this, "rag", {
       description: "API for RAG",
       restApiName: "rag-api",
