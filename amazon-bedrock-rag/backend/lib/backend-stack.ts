@@ -17,7 +17,6 @@ import { bedrock } from "@cdklabs/generative-ai-cdk-constructs";
 import { S3EventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
-import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as sns from "aws-cdk-lib/aws-sns";
@@ -98,72 +97,17 @@ export class BackendStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: true,
-    });
-
-    const drBucket = new s3.Bucket(this, "drbucket-" + uuid.v4(), {
-      lifecycleRules: [
+      cors: [
         {
-          expiration: Duration.days(10),
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.POST,
+          ],
+          allowedOrigins: ["*"],
+          allowedHeaders: ["*"],
         },
       ],
-      blockPublicAccess: {
-        blockPublicAcls: true,
-        blockPublicPolicy: true,
-        ignorePublicAcls: true,
-        restrictPublicBuckets: true,
-      },
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      versioned: true,
-    });
-
-    const replicationRole = new iam.Role(this, "ReplicationRole", {
-      assumedBy: new iam.ServicePrincipal("s3.amazonaws.com"),
-      path: "/service-role/",
-    });
-
-    replicationRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "s3:GetObjectVersionForReplication",
-          "s3:GetObjectVersionAcl",
-          "s3:GetObjectVersionTagging",
-        ],
-        resources: [docsBucket.arnForObjects("*")],
-      })
-    );
-
-    replicationRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:ListBucket", "s3:GetReplicationConfiguration"],
-        resources: [docsBucket.bucketArn],
-      })
-    );
-
-    replicationRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:ReplicateObject", "s3:ReplicateDelete", "s3:ReplicateTags"],
-        resources: [drBucket.arnForObjects("*")],
-      })
-    );
-
-    new s3.CfnBucket(this, "MyCfnBucket", {
-      versioningConfiguration: {
-        status: "Enabled",
-      },
-      replicationConfiguration: {
-        role: replicationRole.roleArn,
-        rules: [
-          {
-            destination: {
-              bucket: drBucket.bucketArn,
-            },
-            status: "Enabled",
-          },
-        ],
-      },
     });
 
     const s3DataSource = new bedrock.S3DataSource(this, "s3DataSource", {
@@ -249,7 +193,7 @@ export class BackendStack extends Stack {
     lambdaIngestionJob.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:StartIngestionJob"],
-        resources: [knowledgeBase.knowledgeBaseArn, docsBucket.bucketArn],
+        resources: [knowledgeBase.knowledgeBaseArn],
       })
     );
 
@@ -334,8 +278,6 @@ export class BackendStack extends Stack {
       })
     );
 
-    const whitelistedIps = [Stack.of(this).node.tryGetContext("allowedip")];
-
     const apiGateway = new apigw.RestApi(this, "rag", {
       description: "API for RAG",
       restApiName: "rag-api",
@@ -360,15 +302,32 @@ export class BackendStack extends Stack {
       },
     });
 
+    // Restrict Bedrock permissions to specific Knowledge Base (least privilege)
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: [
-          "bedrock:RetrieveAndGenerate",
-          "bedrock:Retrieve",
-          "bedrock:InvokeModel",
-          "bedrock:ApplyGuardrail",
+        actions: ["bedrock:RetrieveAndGenerate", "bedrock:Retrieve"],
+        resources: [knowledgeBase.knowledgeBaseArn],
+      })
+    );
+
+    // Restrict InvokeModel to specific foundation models
+    lambdaQuery.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-instant-v1`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
         ],
-        resources: ["*"],
+      })
+    );
+
+    // ApplyGuardrail permission for content filtering
+    lambdaQuery.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ApplyGuardrail"],
+        resources: [guardrail.attrGuardrailArn],
       })
     );
 
@@ -398,81 +357,6 @@ export class BackendStack extends Stack {
         burstLimit: 200,
       },
     });
-
-    /**
-     * Create and Associate ACL with Gateway
-     */
-    // Create an IPSet
-    const allowedIpSet = new wafv2.CfnIPSet(this, "DevIpSet", {
-      addresses: whitelistedIps, // whitelisted IPs in CIDR format
-      ipAddressVersion: "IPV4",
-      scope: "REGIONAL",
-      description: "List of allowed IP addresses",
-    });
-    // Create our Web ACL
-    const webACL = new wafv2.CfnWebACL(this, "WebACL", {
-      defaultAction: {
-        block: {},
-      },
-      scope: "REGIONAL",
-      visibilityConfig: {
-        cloudWatchMetricsEnabled: true,
-        metricName: "webACL",
-        sampledRequestsEnabled: true,
-      },
-      rules: [
-        {
-          name: "IPAllowList",
-          priority: 1,
-          statement: {
-            ipSetReferenceStatement: {
-              arn: allowedIpSet.attrArn,
-            },
-          },
-          action: {
-            allow: {},
-          },
-          visibilityConfig: {
-            sampledRequestsEnabled: true,
-            cloudWatchMetricsEnabled: true,
-            metricName: "IPAllowList",
-          },
-        },
-      ],
-    });
-
-    const webAclLogGroup = new logs.LogGroup(this, "awsWafLogs", {
-      logGroupName: `aws-waf-logs-backend`,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    // Create logging configuration with log group as destination
-    new wafv2.CfnLoggingConfiguration(this, "WAFLoggingConfiguration", {
-      resourceArn: webACL.attrArn,
-      logDestinationConfigs: [
-        Stack.of(this).formatArn({
-          arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-          service: "logs",
-          resource: "log-group",
-          resourceName: webAclLogGroup.logGroupName,
-        }),
-      ],
-    });
-
-    // Associate with our gateway
-    const webACLAssociation = new wafv2.CfnWebACLAssociation(
-      this,
-      "WebACLAssociation",
-      {
-        webAclArn: webACL.attrArn,
-        resourceArn: `arn:aws:apigateway:${Stack.of(this).region}::/restapis/${
-          apiGateway.restApiId
-        }/stages/${apiGateway.deploymentStage.stageName}`,
-      }
-    );
-
-    // make sure api gateway is deployed before web ACL association
-    webACLAssociation.node.addDependency(apiGateway);
 
     /** CloudWatch Alarms */
     
@@ -652,21 +536,27 @@ export class BackendStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
 
-    const originAccessIdentity = new cloudfront.OriginAccessIdentity(
-      this,
-      "OriginAccessIdentity"
-    );
-    frontendBucket.grantRead(originAccessIdentity);
-
     // CloudFront distribution
     const distribution = new cloudfront.Distribution(this, "Distribution", {
       defaultBehavior: {
-        origin: new origins.S3Origin(frontendBucket, {
-          originAccessIdentity,
-        }),
+        origin: origins.S3BucketOrigin.withOriginAccessControl(frontendBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       defaultRootObject: "index.html",
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: Duration.minutes(5),
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: Duration.minutes(5),
+        },
+      ],
     });
 
     // Deploy the React app to the S3 bucket
