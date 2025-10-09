@@ -4,7 +4,6 @@ import {
   Duration,
   CfnOutput,
   RemovalPolicy,
-  ArnFormat,
   CustomResource,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -28,6 +27,7 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as awsbedrock from "aws-cdk-lib/aws-bedrock";
 import { join } from "path";
 
 export class BackendStack extends Stack {
@@ -35,34 +35,34 @@ export class BackendStack extends Stack {
     super(scope, id, props);
 
     /** Bedrock Guardrails for Content Safety */
-    const guardrail = new bedrock.Guardrail(this, "ChatbotGuardrail", {
+    const guardrail = new awsbedrock.CfnGuardrail(this, "ChatbotGuardrail", {
       name: "chatbot-content-filter",
       description: "Content filtering for harmful or inappropriate inputs/outputs",
       blockedInputMessaging:
-        "I cannot process that request. Please rephrase your question.",
+        "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
       blockedOutputsMessaging:
-        "I cannot provide that information. Please try a different question.",
+        "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
       contentPolicyConfig: {
         filtersConfig: [
           {
-            type: bedrock.GuardrailContentFilterType.SEXUAL,
-            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
-            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            type: "SEXUAL",
+            inputStrength: "HIGH",
+            outputStrength: "HIGH",
           },
           {
-            type: bedrock.GuardrailContentFilterType.VIOLENCE,
-            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
-            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            type: "VIOLENCE",
+            inputStrength: "HIGH",
+            outputStrength: "HIGH",
           },
           {
-            type: bedrock.GuardrailContentFilterType.HATE,
-            inputStrength: bedrock.GuardrailFilterStrength.HIGH,
-            outputStrength: bedrock.GuardrailFilterStrength.HIGH,
+            type: "HATE",
+            inputStrength: "HIGH",
+            outputStrength: "HIGH",
           },
           {
-            type: bedrock.GuardrailContentFilterType.INSULTS,
-            inputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
-            outputStrength: bedrock.GuardrailFilterStrength.MEDIUM,
+            type: "INSULTS",
+            inputStrength: "MEDIUM",
+            outputStrength: "MEDIUM",
           },
         ],
       },
@@ -331,6 +331,8 @@ export class BackendStack extends Stack {
       tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
       environment: {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
+        GUARDRAIL_ID: guardrail.attrGuardrailId,
+        GUARDRAIL_VERSION: "DRAFT",
       },
     });
 
@@ -352,6 +354,14 @@ export class BackendStack extends Stack {
           `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
           `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
         ],
+      })
+    );
+
+    // ApplyGuardrail permission for content filtering
+    lambdaQuery.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ApplyGuardrail"],
+        resources: [guardrail.attrGuardrailArn],
       })
     );
 
@@ -469,12 +479,12 @@ export class BackendStack extends Stack {
     });
 
     new CfnOutput(this, "GuardrailId", {
-      value: guardrail.guardrailId,
+      value: guardrail.attrGuardrailId,
       description: "Bedrock Guardrail ID for content filtering",
     });
 
     new CfnOutput(this, "GuardrailVersion", {
-      value: "DRAFT",
+      value: guardrail.attrVersion,
       description: "Guardrail version (use DRAFT for testing, create version for production)",
     });
 
