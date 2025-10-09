@@ -344,6 +344,14 @@ export class BackendStack extends Stack {
       })
     );
 
+    // ApplyGuardrail permission is required for the InvokeModel API call
+    lambdaQuery.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ApplyGuardrail"],
+        resources: [guardrail.attrGuardrailArn],
+      })
+    );
+
     // No separate ApplyGuardrail permission is needed when using InvokeModel
     
     apiGateway.root
