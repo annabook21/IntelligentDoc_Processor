@@ -20,6 +20,9 @@ import * as apigw from "aws-cdk-lib/aws-apigateway";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cloudwatch_actions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
@@ -210,6 +213,12 @@ export class BackendStack extends Stack {
         resourceType: "Custom::BedrockWebDataSource",
       }
     );
+
+    /** SNS Topic for Alerts */
+    const alertTopic = new sns.Topic(this, "AlertTopic", {
+      displayName: "Chatbot Processing Alerts",
+      topicName: "chatbot-alerts",
+    });
 
     /** Dead Letter Queue for Failed Ingestions */
     const ingestionDLQ = new sqs.Queue(this, "IngestionDLQ", {
@@ -465,6 +474,51 @@ export class BackendStack extends Stack {
     // make sure api gateway is deployed before web ACL association
     webACLAssociation.node.addDependency(apiGateway);
 
+    /** CloudWatch Alarms */
+    
+    // Alarm for Query Lambda errors
+    const queryErrorAlarm = new cloudwatch.Alarm(this, "QueryLambdaErrors", {
+      metric: lambdaQuery.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 5,
+      evaluationPeriods: 1,
+      alarmDescription: "Alert when Query Lambda has >5 errors in 5 minutes",
+      alarmName: "chatbot-query-errors",
+    });
+    queryErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
+
+    // Alarm for Ingestion Lambda errors
+    const ingestionErrorAlarm = new cloudwatch.Alarm(
+      this,
+      "IngestionLambdaErrors",
+      {
+        metric: lambdaIngestionJob.metricErrors({
+          period: Duration.minutes(5),
+        }),
+        threshold: 3,
+        evaluationPeriods: 1,
+        alarmDescription:
+          "Alert when Ingestion Lambda has >3 errors in 5 minutes",
+        alarmName: "chatbot-ingestion-errors",
+      }
+    );
+    ingestionErrorAlarm.addAlarmAction(
+      new cloudwatch_actions.SnsAction(alertTopic)
+    );
+
+    // Alarm for messages in DLQ
+    const dlqAlarm = new cloudwatch.Alarm(this, "DLQMessagesAlarm", {
+      metric: ingestionDLQ.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: "Alert when messages appear in DLQ",
+      alarmName: "chatbot-dlq-messages",
+    });
+    dlqAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
+
     //CfnOutput is used to log API Gateway URL and S3 bucket name to console
     new CfnOutput(this, "APIGatewayUrl", {
       value: apiGateway.url,
@@ -472,6 +526,11 @@ export class BackendStack extends Stack {
 
     new CfnOutput(this, "DocsBucketName", {
       value: docsBucket.bucketName,
+    });
+
+    new CfnOutput(this, "AlertTopicArn", {
+      value: alertTopic.topicArn,
+      description: "SNS topic for monitoring alerts (subscribe for notifications)",
     });
 
     new CfnOutput(this, "GuardrailId", {
