@@ -323,15 +323,15 @@ export class BackendStack extends Stack {
       },
     });
 
-    // Restrict Bedrock permissions to specific Knowledge Base (least privilege)
+    // Restrict Bedrock permissions for the two-step RAG process
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["bedrock:RetrieveAndGenerate", "bedrock:Retrieve"],
+        actions: ["bedrock:Retrieve"],
         resources: [knowledgeBase.knowledgeBaseArn],
       })
     );
 
-    // Restrict model invocation to specific foundation models
+    // Restrict InvokeModel to specific foundation models
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:InvokeModel"],
@@ -344,14 +344,8 @@ export class BackendStack extends Stack {
       })
     );
 
-    // ApplyGuardrail permission for content filtering
-    lambdaQuery.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:ApplyGuardrail"],
-        resources: [guardrail.attrGuardrailArn],
-      })
-    );
-
+    // No separate ApplyGuardrail permission is needed when using InvokeModel
+    
     apiGateway.root
       .addResource("docs")
       .addMethod("POST", new apigw.LambdaIntegration(lambdaQuery));
