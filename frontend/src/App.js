@@ -14,6 +14,30 @@ import SendIcon from "@mui/icons-material/Send";
 import UrlSourcesForm from "./WebUrlsForm";
 import FileUpload from "./FileUpload";
 import {modelList} from "./RAGModels"
+import Alert from "@mui/material/Alert";
+
+// Add a new component for the status indicator
+const IngestionStatus = ({ status }) => {
+  if (!status || status === 'COMPLETE' || status === 'NO_JOBS_FOUND') {
+    return null;
+  }
+
+  let message = "Processing document...";
+  let severity = "info";
+
+  if (status === 'IN_PROGRESS' || status === 'STARTING') {
+    message = "⏳ Ingesting new document... The chatbot will have context once this is complete.";
+  } else if (status === 'FAILED') {
+    message = "❌ Ingestion failed. Please check the file and try again.";
+    severity = "error";
+  }
+
+  return (
+    <Alert severity={severity} sx={{ mt: 2, mb: 2 }}>
+      {message}
+    </Alert>
+  );
+};
 
 const App = (props) => {
   const [history, setHistory] = useState([]);
@@ -28,6 +52,7 @@ const App = (props) => {
     seedUrlList: [],
   });
   const [hasWebDataSource, setHasWebDataSource] = useState(false);
+  const [ingestionStatus, setIngestionStatus] = useState(null);
 
   // Load API URL from config.json at startup
   useEffect(() => {
@@ -42,6 +67,35 @@ const App = (props) => {
         console.warn('Could not load config.json, API URL must be entered manually:', err);
       });
   }, []);
+
+  // Polling logic for ingestion status
+  useEffect(() => {
+    let intervalId;
+
+    const checkStatus = async () => {
+      if (!baseUrl) return;
+      try {
+        const response = await fetch(`${baseUrl}ingestion-status`);
+        const data = await response.json();
+        setIngestionStatus(data.status);
+
+        if (data.status === 'COMPLETE' || data.status === 'FAILED') {
+          clearInterval(intervalId);
+          // Hide the status message after a few seconds
+          setTimeout(() => setIngestionStatus(null), 5000);
+        }
+      } catch (err) {
+        console.error("Error checking ingestion status:", err);
+        clearInterval(intervalId);
+      }
+    };
+
+    if (ingestionStatus === 'STARTING' || ingestionStatus === 'IN_PROGRESS') {
+      intervalId = setInterval(checkStatus, 5000); // Poll every 5 seconds
+    }
+
+    return () => clearInterval(intervalId);
+  }, [ingestionStatus, baseUrl]);
 
   useEffect(() => {
     if (!baseUrl) {
@@ -217,7 +271,8 @@ const App = (props) => {
           <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
             2. Upload Documents (Optional):
           </Typography>
-          <FileUpload baseUrl={baseUrl} />
+          <FileUpload baseUrl={baseUrl} onUploadComplete={() => setIngestionStatus('STARTING')} />
+          <IngestionStatus status={ingestionStatus} />
           
           <Divider sx={{ my: 3 }} />
 

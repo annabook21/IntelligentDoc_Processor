@@ -28,13 +28,17 @@ exports.handler =
           type: "KNOWLEDGE_BASE", 
           knowledgeBaseConfiguration: {
             knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID,
-            //Claude Instant v1.2 is a fast, affordable yet still very capable model, which can handle a range of tasks including casual dialogue, text analysis, summarization, and document question-answering.
             modelArn: modelId ? `arn:aws:bedrock:${process.env.AWS_REGION}::foundation-model/${modelId}` : `arn:aws:bedrock:${process.env.AWS_REGION}::foundation-model/anthropic.claude-instant-v1`,
           },
+        },
+        guardrailConfiguration: {
+          guardrailId: process.env.GUARDRAIL_ID,
+          guardrailVersion: process.env.GUARDRAIL_VERSION,
         },
       };
       const command = new RetrieveAndGenerateCommand(input);
       const response = await client.send(command);
+      
       console.log('query response citation', response.citations);
       response.citations.forEach((c) => console.log("generatedResponsePart: ", c.generatedResponsePart, " retrievedReferences: ", c.retrievedReferences ))
       const location = response.citations[0]?.retrievedReferences[0]?.location
@@ -50,6 +54,12 @@ exports.handler =
       }
       
     } catch (err) {
+      // Check if the error is a Guardrail blocking the user's input
+      if (err.name === 'ValidationException' && err.message.includes('Guardrail')) {
+        console.warn('🛡️ Guardrail blocked user input:', err.message);
+        return makeResults(200, process.env.BLOCKED_INPUT_MESSAGE, null, null);
+      }
+      
       console.log(err);    
       return makeResults(500, "Server side error: please check function logs",null,null);
     }

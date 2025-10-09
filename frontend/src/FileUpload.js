@@ -16,7 +16,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PropTypes from "prop-types";
 
-const FileUpload = ({ baseUrl }) => {
+const FileUpload = ({ baseUrl, onUploadComplete }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -107,8 +107,12 @@ const FileUpload = ({ baseUrl }) => {
 
     setUploading(false);
     
-    // Clear selected files after successful upload
+    // Clear selected files after successful upload and trigger polling
     setTimeout(() => {
+      // Check if at least one file was successful before triggering
+      if (Object.values(newStatus).some(s => s === 'success')) {
+        onUploadComplete();
+      }
       setSelectedFiles([]);
       setUploadProgress({});
       setUploadStatus({});
@@ -237,6 +241,7 @@ const FileUpload = ({ baseUrl }) => {
 
 FileUpload.propTypes = {
   baseUrl: PropTypes.string,
+  onUploadComplete: PropTypes.func.isRequired,
 };
 
 export default FileUpload;

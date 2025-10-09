@@ -319,6 +319,7 @@ export class BackendStack extends Stack {
         KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
         GUARDRAIL_ID: guardrail.attrGuardrailId,
         GUARDRAIL_VERSION: "DRAFT",
+        BLOCKED_INPUT_MESSAGE: "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
       },
     });
 
@@ -382,6 +383,34 @@ export class BackendStack extends Stack {
     apiGateway.root
       .addResource("upload")
       .addMethod("POST", new apigw.LambdaIntegration(lambdaUpload));
+
+    /** Lambda for checking ingestion job status */
+    const lambdaIngestionStatus = new NodejsFunction(
+      this,
+      "IngestionStatus",
+      {
+        runtime: Runtime.NODEJS_20_X,
+        entry: join(__dirname, "../lambda/ingestion-status/index.js"),
+        functionName: `get-ingestion-status`,
+        timeout: Duration.seconds(20),
+        tracing: lambda.Tracing.ACTIVE,
+        environment: {
+          KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
+          DATA_SOURCE_ID: s3DataSource.dataSourceId,
+        },
+      }
+    );
+
+    lambdaIngestionStatus.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:ListIngestionJobs"],
+        resources: [knowledgeBase.knowledgeBaseArn],
+      })
+    );
+
+    apiGateway.root
+      .addResource("ingestion-status")
+      .addMethod("GET", new apigw.LambdaIntegration(lambdaIngestionStatus));
 
     // Usage plan with throttling for basic API protection
     apiGateway.addUsagePlan("usage-plan", {
