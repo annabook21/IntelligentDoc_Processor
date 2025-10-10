@@ -3,393 +3,988 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Contextual Chatbot Demo - Architecture</title>
+    <title>AWS Contextual Chatbot - Architecture</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             line-height: 1.6;
-            color: #e0e0e0;
-            background-color: #1a1a1a;
-            margin: 0;
-            padding: 0;
+            color: #16191f;
+            background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+            min-height: 100vh;
         }
-        .container {
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 20px;
-            background-color: #2a2a2a;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+
+        .hero {
+            background: linear-gradient(135deg, #232F3E 0%, #1a2332 100%);
+            padding: 60px 20px;
+            text-align: center;
+            border-bottom: 4px solid #FF9900;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-        h1, h2, h3 {
-            color: #FF9900;
-            border-bottom: 2px solid #FF9900;
-            padding-bottom: 10px;
+
+        .hero h1 {
+            font-size: 3.5em;
+            color: #fff;
+            margin-bottom: 15px;
+            font-weight: 700;
+            letter-spacing: -1px;
         }
-        h1 { font-size: 2.5em; }
-        h2 { font-size: 2em; margin-top: 40px; }
-        h3 { font-size: 1.5em; }
-        p {
-            margin-bottom: 1em;
+
+        .hero .subtitle {
+            font-size: 1.3em;
+            color: #AAB7B8;
+            max-width: 800px;
+            margin: 0 auto 30px;
         }
-        code {
-            background-color: #383838;
-            padding: 0.2em 0.4em;
-            margin: 0;
-            font-size: 85%;
-            border-radius: 3px;
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-            color: #FF9900;
+
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 25px;
         }
-        pre {
-            background-color: #212121;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-            border: 1px solid #444;
-        }
-        pre code {
-            padding: 0;
-            background-color: transparent;
-        }
-        ul {
-            padding-left: 20px;
-        }
-        li {
-            margin-bottom: 0.5em;
-        }
-        strong {
-            color: #FF9900;
-        }
-        .mermaid {
-            background-color: #1a1a1a;
-            border-radius: 8px;
-            padding: 30px;
-            margin: 20px 0;
-        }
+
         .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            font-weight: 600;
-            margin-left: 8px;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-size: 0.95em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
         }
-        .badge-serverless {
-            background-color: #FF9900;
+
+        .badge:hover { transform: translateY(-2px); }
+        .badge-serverless { background: linear-gradient(135deg, #FF9900 0%, #FFB84D 100%); color: #232F3E; }
+        .badge-rag { background: linear-gradient(135deg, #01A88D 0%, #00D4AA 100%); color: white; }
+        .badge-secure { background: linear-gradient(135deg, #146EB4 0%, #3498DB 100%); color: white; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .section {
+            background: #fff;
+            border-radius: 16px;
+            padding: 50px;
+            margin-bottom: 40px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .section:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            font-size: 2.4em;
+            color: #232F3E;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #FF9900;
+            position: relative;
+        }
+
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 100px;
+            height: 3px;
+            background: #01A88D;
+        }
+
+        h3 {
+            font-size: 1.6em;
+            color: #146EB4;
+            margin: 30px 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h3::before {
+            content: '▸';
+            color: #FF9900;
+            font-size: 1.2em;
+        }
+
+        .diagram-container {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 16px;
+            padding: 40px;
+            margin: 40px 0;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+
+        .component-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-left: 4px solid #FF9900;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+        }
+
+        .component-card:hover {
+            transform: translateX(8px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border-left-width: 6px;
+        }
+
+        .component-card h4 {
+            color: #232F3E;
+            font-size: 1.3em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .component-icon {
+            font-size: 1.8em;
+        }
+
+        .component-card p {
+            color: #5A6C7D;
+            line-height: 1.7;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 12px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #2C3E50;
+            line-height: 1.8;
+        }
+
+        li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #FF9900;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        code {
+            background: linear-gradient(135deg, #232F3E 0%, #2c3e50 100%);
+            color: #FF9900;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        pre {
+            background: #232F3E;
+            color: #AAB7B8;
+            padding: 25px;
+            border-radius: 12px;
+            overflow-x: auto;
+            border-left: 4px solid #FF9900;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+
+        pre code {
+            background: none;
+            color: #FF9900;
+            padding: 0;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #E8F4F8 0%, #D6EAF8 100%);
+            border-left: 5px solid #146EB4;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            box-shadow: 0 4px 12px rgba(20, 110, 180, 0.15);
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, #FFF3CD 0%, #FFE5A3 100%);
+            border-left: 5px solid #FF9900;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            box-shadow: 0 4px 12px rgba(255, 153, 0, 0.15);
+        }
+
+        .success-box {
+            background: linear-gradient(135deg, #D4EDDA 0%, #C3E6CB 100%);
+            border-left: 5px solid #01A88D;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            box-shadow: 0 4px 12px rgba(1, 168, 141, 0.15);
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .flow-step:hover {
+            background: #e9ecef;
+            transform: translateX(10px);
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #FF9900 0%, #FFB84D 100%);
+            color: white;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.3em;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(255, 153, 0, 0.3);
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content strong {
+            color: #232F3E;
+            font-size: 1.1em;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        ol {
+            counter-reset: item;
+            list-style: none;
+            padding: 0;
+        }
+
+        ol > li {
+            counter-increment: item;
+            padding-left: 50px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        ol > li::before {
+            content: counter(item);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #146EB4 0%, #3498DB 100%);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(20, 110, 180, 0.3);
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, #232F3E 0%, #2c3e50 100%);
+            color: #FF9900;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9em;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+        }
+
+        .tech-badge:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #FF9900 0%, #FFB84D 100%);
             color: #232F3E;
         }
-        .badge-rag {
-            background-color: #146EB4;
-            color: white;
+
+        .mermaid {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            min-height: 600px;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.2em; }
+            .section { padding: 30px 25px; }
+            h2 { font-size: 1.8em; }
+            .architecture-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
+    <div class="hero">
+        <h1>🚀 AWS Contextual Chatbot</h1>
+        <p class="subtitle">A production-ready, enterprise-grade RAG solution powered by Amazon Bedrock Knowledge Bases</p>
+        <div class="badges">
+            <span class="badge badge-serverless">Serverless</span>
+            <span class="badge badge-rag">RAG Enabled</span>
+            <span class="badge badge-secure">Enterprise Secure</span>
+        </div>
+    </div>
+
     <div class="container">
-        <h1>AWS Contextual Chatbot Demo <span class="badge badge-serverless">Serverless</span><span class="badge badge-rag">RAG</span></h1>
-        <p>A fully serverless, production-ready contextual chatbot built with Amazon Bedrock Knowledge Bases, AWS CDK, and React. Features real-time document ingestion, drag-and-drop file uploads, and retrieval-augmented generation (RAG) with citations.</p>
-
-        <h2>Architecture Overview</h2>
-        <p>This is a 100% serverless architecture deployed via AWS CDK (Infrastructure as Code). The system automatically processes uploaded documents, creates vector embeddings, and provides intelligent responses with source citations.</p>
-        <div class="mermaid">
+        <div class="section">
+            <h2>🏗️ Architecture Overview</h2>
+            <p style="font-size: 1.15em; color: #5A6C7D; margin-bottom: 30px;">
+                A fully serverless, scalable architecture built on AWS best practices, featuring a sophisticated 
+                retrieval-augmented generation pipeline with enterprise-grade security and observability.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="mermaid">
 graph TB
-    subgraph Internet ["🌐 Internet"]
-        User["👤 User<br/>Web Browser"]
+    subgraph User["👤 User Interface"]
+        Browser["Web Browser"]
     end
 
-    subgraph CDN ["Content Delivery"]
-        CF["☁️ CloudFront<br/>Distribution<br/><i>Global CDN</i>"]
+    subgraph CDN["☁️ Content Delivery"]
+        CloudFront["CloudFront Distribution"]
     end
 
-    subgraph Storage ["Frontend Storage"]
-        FrontendS3["📦 S3 Bucket<br/>Frontend<br/><i>React App + config.json</i>"]
+    subgraph Frontend["📱 Frontend Hosting"]
+        S3Frontend["S3 Bucket<br/>(React Application)"]
     end
 
-    subgraph API ["API Layer"]
-        APIGW["🔌 API Gateway<br/>REST API<br/><i>/docs, /upload</i>"]
+    subgraph API["🔌 API Layer"]
+        APIGW["API Gateway<br/>(REST API)"]
     end
 
-    subgraph Compute ["Lambda Functions"]
-        QueryLambda["⚡ Query Lambda<br/><i>Node.js 20.x</i><br/>RetrieveAndGenerate"]
-        UploadLambda["⚡ Upload Lambda<br/><i>Node.js 20.x</i><br/>Generate Pre-signed URL"]
-        IngestLambda["⚡ Ingestion Lambda<br/><i>Node.js 20.x</i><br/>Start Bedrock Job"]
+    subgraph Compute["⚡ Serverless Compute"]
+        QueryLambda["Query Lambda<br/>(RAG Orchestration)"]
+        UploadLambda["Upload Lambda<br/>(Pre-signed URLs)"]
+        IngestLambda["Ingestion Lambda<br/>(KB Sync)"]
+        StatusLambda["Status Lambda<br/>(Job Monitoring)"]
     end
 
-    subgraph DocStorage ["Document Storage"]
-        DocsS3["📦 S3 Bucket<br/>Documents<br/><i>Versioned + CORS</i>"]
+    subgraph AI["🧠 AI & ML Services"]
+        BedrockKB["Bedrock<br/>Knowledge Base"]
+        BedrockGuard["Bedrock<br/>Guardrails"]
+        BedrockModel["Claude 3 Sonnet<br/>(Foundation Model)"]
+        OSS["OpenSearch<br/>Serverless"]
     end
 
-    subgraph AI ["AI/ML Services"]
-        BedrockKB["🧠 Bedrock<br/>Knowledge Base<br/><i>Titan Embed v1</i>"]
-        BedrockLLM["🤖 Bedrock<br/>Foundation Models<br/><i>Claude Sonnet</i>"]
-        OSS["🔍 OpenSearch<br/>Serverless<br/><i>Vector Store</i>"]
+    subgraph Storage["💾 Data Storage"]
+        DocsS3["S3 Bucket<br/>(Documents)"]
     end
 
-    subgraph WebCrawler ["Web Data Source"]
-        WebDS["🕷️ Web Crawler<br/>Data Source<br/><i>Custom Resource</i>"]
-        UpdateURLs["⚡ Update URLs<br/>Lambda"]
-        GetURLs["⚡ Get URLs<br/>Lambda"]
-        CrawlJob["⚡ Crawl Job<br/>Lambda<br/><i>Scheduled Daily</i>"]
+    subgraph Monitoring["📊 Observability"]
+        CloudWatch["CloudWatch<br/>(Logs & Metrics)"]
+        XRay["X-Ray<br/>(Distributed Tracing)"]
+        SNS["SNS<br/>(Alerting)"]
+        DLQ["SQS DLQ<br/>(Error Queue)"]
     end
 
-    User -->|"1. HTTPS Request"| CF
-    CF -->|"2. Serve React App"| FrontendS3
-    User -->|"3. Upload File via UI"| APIGW
-    User -->|"4. Send Query"| APIGW
+    Browser -->|1. HTTPS| CloudFront
+    CloudFront -->|2. Serve App| S3Frontend
+    Browser -->|3. API Calls| APIGW
     
-    APIGW -->|"5a. POST /upload"| UploadLambda
-    UploadLambda -->|"6. Generate Pre-signed URL"| DocsS3
+    APIGW -->|POST /upload| UploadLambda
+    APIGW -->|POST /docs| QueryLambda
+    APIGW -->|GET /status| StatusLambda
     
-    APIGW -->|"5b. POST /docs"| QueryLambda
-    QueryLambda -->|"7. RetrieveAndGenerate API"| BedrockKB
-    BedrockKB -->|"8. Query Vectors"| OSS
-    BedrockKB -->|"9. Generate Response"| BedrockLLM
-    BedrockLLM -->|"10. Answer + Citations"| QueryLambda
-    QueryLambda -->|"11. JSON Response"| User
+    UploadLambda -->|Pre-signed URL| DocsS3
+    DocsS3 -->|S3 Event| IngestLambda
+    IngestLambda -->|StartIngestionJob| BedrockKB
     
-    DocsS3 -->|"S3 Event: ObjectCreated"| IngestLambda
-    IngestLambda -->|"12. StartIngestionJob"| BedrockKB
-    BedrockKB -->|"13. Chunk & Vectorize"| OSS
+    QueryLambda -->|Retrieve| BedrockKB
+    BedrockKB -->|Vector Search| OSS
+    QueryLambda -->|InvokeModel| BedrockGuard
+    BedrockGuard -->|Filtered| BedrockModel
     
-    WebDS -.->|"Data Source"| BedrockKB
-    APIGW -->|"POST /web-urls"| UpdateURLs
-    UpdateURLs -->|"Update Seed URLs"| WebDS
-    APIGW -->|"GET /urls"| GetURLs
-    GetURLs -->|"Retrieve URLs"| WebDS
-    CrawlJob -->|"Daily Trigger"| WebDS
-
-    style User fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#232F3E
-    style CF fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff
-    style APIGW fill:#FF4F8B,stroke:#232F3E,stroke-width:2px,color:#fff
-    style QueryLambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E
-    style UploadLambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E
-    style IngestLambda fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E
+    IngestLambda -.->|Errors| DLQ
+    QueryLambda -.->|Logs| CloudWatch
+    IngestLambda -.->|Logs| CloudWatch
+    CloudWatch -.->|Alarms| SNS
+    
+    style Browser fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000
+    style CloudFront fill:#8C4FFF,stroke:#232F3E,stroke-width:3px,color:#fff
+    style S3Frontend fill:#569A31,stroke:#232F3E,stroke-width:3px,color:#fff
+    style DocsS3 fill:#569A31,stroke:#232F3E,stroke-width:3px,color:#fff
+    style APIGW fill:#FF4F8B,stroke:#232F3E,stroke-width:3px,color:#fff
+    style QueryLambda fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000
+    style UploadLambda fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000
+    style IngestLambda fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000
+    style StatusLambda fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000
     style BedrockKB fill:#01A88D,stroke:#232F3E,stroke-width:3px,color:#fff
-    style BedrockLLM fill:#01A88D,stroke:#232F3E,stroke-width:2px,color:#fff
-    style OSS fill:#146EB4,stroke:#232F3E,stroke-width:2px,color:#fff
-    style FrontendS3 fill:#569A31,stroke:#232F3E,stroke-width:2px,color:#fff
-    style DocsS3 fill:#569A31,stroke:#232F3E,stroke-width:2px,color:#fff
-    style WebDS fill:#527FFF,stroke:#232F3E,stroke-width:2px,color:#fff
-    style UpdateURLs fill:#FF9900,stroke:#232F3E,stroke-width:1px,color:#232F3E
-    style GetURLs fill:#FF9900,stroke:#232F3E,stroke-width:1px,color:#232F3E
-    style CrawlJob fill:#FF9900,stroke:#232F3E,stroke-width:1px,color:#232F3E
+    style BedrockGuard fill:#01A88D,stroke:#232F3E,stroke-width:3px,color:#fff
+    style BedrockModel fill:#01A88D,stroke:#232F3E,stroke-width:3px,color:#fff
+    style OSS fill:#146EB4,stroke:#232F3E,stroke-width:3px,color:#fff
+    style CloudWatch fill:#52a7c7,stroke:#232F3E,stroke-width:2px,color:#000
+    style XRay fill:#52a7c7,stroke:#232F3E,stroke-width:2px,color:#000
+    style SNS fill:#52a7c7,stroke:#232F3E,stroke-width:2px,color:#000
+    style DLQ fill:#52a7c7,stroke:#232F3E,stroke-width:2px,color:#000
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong style="font-size: 1.2em; color: #146EB4; display: block; margin-bottom: 10px;">💡 Architecture Highlights</strong>
+                This design implements a two-step RAG pattern where context retrieval and generation are separated, 
+                enabling the use of Bedrock Guardrails for responsible AI enforcement—something not possible with 
+                the combined RetrieveAndGenerate API.
+            </div>
         </div>
 
-        <h2>Core Components</h2>
+        <div class="section">
+            <h2>🎯 Core Components</h2>
+            
+            <div class="architecture-grid">
+                <div class="component-card">
+                    <h4><span class="component-icon">📱</span> Frontend Layer</h4>
+                    <p>Modern React application with drag-and-drop file uploads, real-time status polling, and an intuitive chat interface. Served globally via CloudFront CDN with OAC security.</p>
+                </div>
 
-        <h3>1. Frontend Layer</h3>
-        <ul>
-            <li><strong>CloudFront Distribution:</strong> Global CDN that serves the React application with HTTPS, caching, and low-latency delivery. Handles 403/404 errors by redirecting to <code>index.html</code> for client-side routing.</li>
-            <li><strong>Frontend S3 Bucket:</strong> Stores the built React application with auto-configured <code>config.json</code> containing the API Gateway URL. Access is restricted to CloudFront via Origin Access Control (OAC).</li>
-            <li><strong>React Application:</strong> Modern UI with:
-                <ul>
-                    <li>Auto-configured API URL (no manual setup required)</li>
-                    <li>Drag-and-drop file upload with progress indicators</li>
-                    <li>Model selection (Claude 3.5 Sonnet, Claude 3 Haiku, etc.)</li>
-                    <li>Chat interface with conversation history</li>
-                    <li>Source citations with relevance scores</li>
+                <div class="component-card">
+                    <h4><span class="component-icon">🔌</span> API Gateway</h4>
+                    <p>Fully managed REST API with CORS, throttling, and usage plans. Serves as the secure entry point for all frontend operations.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">⚡</span> Lambda Functions</h4>
+                    <p>Serverless compute handling query orchestration, file uploads, ingestion automation, and status monitoring with built-in retry logic.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🧠</span> Bedrock Knowledge Base</h4>
+                    <p>Automated RAG engine using Titan G1 Embeddings for vectorization and OpenSearch Serverless for semantic search capabilities.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🤖</span> Claude 3 Sonnet</h4>
+                    <p>State-of-the-art foundation model for generating contextual, human-like responses with exceptional reasoning capabilities.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🛡️</span> Bedrock Guardrails</h4>
+                    <p>Responsible AI layer filtering both inputs and outputs for harmful content across hate, insults, sexual, and violence categories.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">💾</span> S3 Storage</h4>
+                    <p>Encrypted, versioned document storage with lifecycle policies and comprehensive access controls for data protection.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">📊</span> Observability Stack</h4>
+                    <p>Complete monitoring with CloudWatch dashboards, X-Ray tracing, custom alarms, and SNS notifications for operational excellence.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Deployment Guide</h2>
+            
+            <div class="warning-box">
+                <strong style="font-size: 1.2em; color: #FF9900; display: block; margin-bottom: 10px;">⚠️ Critical Pre-Deployment Step</strong>
+                You MUST enable the required Bedrock models in your AWS account before deployment:
+                <ul style="margin-top: 15px;">
+                    <li><strong>Titan G1 Embeddings</strong> for vector generation</li>
+                    <li><strong>Claude 3 Sonnet</strong> for text generation</li>
                 </ul>
-            </li>
-        </ul>
+                Navigate to the Bedrock console → Model access → Request access for these models.
+            </div>
 
-        <h3>2. API Layer</h3>
-        <ul>
-            <li><strong>API Gateway (REST API):</strong> Serverless API with CORS enabled and usage plans for throttling:
-                <ul>
-                    <li><strong><code>POST /docs</code>:</strong> Main chatbot query endpoint</li>
-                    <li><strong><code>POST /upload</code>:</strong> Generate pre-signed S3 URLs for file uploads</li>
-                    <li><strong><code>GET /urls</code>:</strong> Retrieve web crawler seed URLs</li>
-                    <li><strong><code>POST /web-urls</code>:</strong> Update web crawler seed URLs</li>
+            <h3>Prerequisites</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">AWS Account</span>
+                <span class="tech-badge">AWS CLI</span>
+                <span class="tech-badge">Node.js 20.x+</span>
+                <span class="tech-badge">AWS CDK CLI</span>
+                <span class="tech-badge">Docker Desktop</span>
+            </div>
+
+            <h3>Step-by-Step Deployment</h3>
+            <ol>
+                <li><strong>Clone Repository:</strong> Download the project and navigate to the backend directory</li>
+                <li><strong>Enable Bedrock Models:</strong> Follow the critical step above to enable required models in the Bedrock console</li>
+                <li><strong>Install Dependencies:</strong> Run <code>npm install</code> in the backend directory</li>
+                <li><strong>Bootstrap CDK:</strong> First-time users run <code>cdk bootstrap</code> to prepare your AWS environment</li>
+                <li><strong>Deploy Infrastructure:</strong> Execute <code>cdk deploy</code> and wait 10-15 minutes for complete provisioning</li>
+            </ol>
+
+            <div class="success-box">
+                <strong style="font-size: 1.2em; color: #01A88D; display: block; margin-bottom: 10px;">✅ Post-Deployment</strong>
+                After successful deployment, CDK will output your CloudFront URL. Save this URL—it's your application's public endpoint.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📖 Usage Guide</h2>
+            
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Access Application</strong>
+                    Open the CloudFront URL provided in the CDK deployment outputs in your web browser
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Upload Documents</strong>
+                    Drag and drop your files (PDF, DOCX, TXT, etc.) into the upload area or click to browse
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Monitor Ingestion</strong>
+                    Watch the real-time status indicator until you see "✅ Ingestion complete!" message
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Ask Questions</strong>
+                    Type questions about your documents and receive AI-generated answers with source citations
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔒 Security & Compliance</h2>
+            <p style="font-size: 1.1em; color: #5A6C7D; margin-bottom: 25px;">
+                Built according to the AWS Well-Architected Framework's Security Pillar
+            </p>
+
+            <div class="architecture-grid">
+                <div class="component-card">
+                    <h4><span class="component-icon">🔑</span> IAM Least Privilege</h4>
+                    <p>All roles scoped to minimum necessary permissions. Model invocation restricted to specific ARNs.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🔐</span> Data Encryption</h4>
+                    <p>All data encrypted at rest using AWS managed keys. TLS 1.2+ enforced for data in transit.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🚫</span> Network Isolation</h4>
+                    <p>S3 buckets block all public access. CloudFront OAC ensures controlled, secure access only.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🛡️</span> Responsible AI</h4>
+                    <p>Bedrock Guardrails actively filter harmful content in both user inputs and model outputs.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">📝</span> Audit Logging</h4>
+                    <p>Comprehensive CloudWatch logging with retention policies and X-Ray distributed tracing.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🔄</span> Data Protection</h4>
+                    <p>S3 versioning enabled to protect against accidental deletions and support compliance requirements.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>⚙️ Performance Tuning</h2>
+            <ul>
+                <li><strong>Lambda Memory Optimization:</strong> Monitor "Max Memory Used" in CloudWatch Logs and adjust <code>memorySize</code> in <code>backend-stack.ts</code> for optimal cost/performance balance</li>
+                <li><strong>Chunking Strategy:</strong> Fine-tune the <code>maxTokens</code> parameter in the Knowledge Base chunking configuration if answers appear fragmented or incomplete</li>
+                <li><strong>API Rate Limiting:</strong> Adjust <code>rateLimit</code> and <code>burstLimit</code> in the API Gateway Usage Plan based on your expected traffic patterns</li>
+                <li><strong>CloudFront Caching:</strong> Optimize TTL settings for static assets to reduce origin requests and improve global latency</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>💰 Cost Estimation</h2>
+            <div class="info-box">
+                <strong style="font-size: 1.2em; color: #146EB4; display: block; margin-bottom: 10px;">💡 Cost Breakdown</strong>
+                For a typical workload with 100 documents and 500 queries per month:
+                <ul style="margin-top: 15px;">
+                    <li><strong>Amazon Bedrock:</strong> ~$3-4/month (primary cost driver, pay-per-token)</li>
+                    <li><strong>OpenSearch Serverless:</strong> ~$0.50/month (minimal vector storage)</li>
+                    <li><strong>Lambda:</strong> Free Tier eligible (1M requests/month free)</li>
+                    <li><strong>S3 & CloudFront:</strong> Free Tier eligible for low traffic</li>
+                    <li><strong>API Gateway:</strong> Free Tier (1M requests/month free)</li>
                 </ul>
-            </li>
-        </ul>
+                <strong style="display: block; margin-top: 15px; color: #232F3E;">Estimated Total: Under $5/month for typical usage</strong>
+            </div>
+            <p style="margin-top: 20px;">Use the <a href="https://calculator.aws/" style="color: #146EB4; font-weight: 600;">AWS Pricing Calculator</a> for detailed estimates based on your specific usage patterns.</p>
+        </div>
 
-        <h3>3. Compute Layer (Lambda Functions)</h3>
-        <ul>
-            <li><strong>Query Lambda (<code>query-bedrock-llm</code>):</strong> Core chatbot logic using Bedrock's <code>RetrieveAndGenerate</code> API. Returns AI-generated responses with source citations and relevance scores.</li>
-            <li><strong>Upload Lambda (<code>generate-upload-url</code>):</strong> Generates secure, time-limited pre-signed S3 URLs for direct browser-to-S3 file uploads. Adds timestamps to prevent filename collisions.</li>
-            <li><strong>Ingestion Lambda (<code>start-ingestion-trigger</code>):</strong> Triggered by S3 ObjectCreated events. Starts Bedrock ingestion jobs to process new documents.</li>
-            <li><strong>Web Crawler Lambdas:</strong> Manage web crawling data source with scheduled daily crawls.</li>
-        </ul>
+        <div class="section">
+            <h2>🔧 Troubleshooting</h2>
+            
+            <div class="warning-box">
+                <strong style="color: #FF9900;">Deployment fails with "Bedrock model access denied"</strong>
+                <p style="margin-top: 10px;">You haven't enabled the required Bedrock models. Go to the Bedrock console → Model access and enable Titan G1 Embeddings and Claude 3 Sonnet.</p>
+            </div>
 
-        <h3>4. Storage Layer & Data Protection</h3>
-        <ul>
-            <li><strong>Documents S3 Bucket:</strong> Versioned bucket with CORS configuration for direct browser uploads. Stores source documents (PDF, TXT, DOCX, MD) that feed into the knowledge base.</li>
-            <li><strong>S3 Event Notifications:</strong> Automatically trigger ingestion when new files are uploaded.</li>
-            <li><strong>S3 Versioning (Data Protection):</strong> Every file modification creates a new version, enabling:
-                <ul>
-                    <li>✅ Recovery from accidental deletions</li>
-                    <li>✅ Point-in-time restore of any document</li>
-                    <li>✅ Protection against accidental overwrites</li>
-                    <li>✅ Complete audit trail of all changes</li>
-                </ul>
-            </li>
-            <li><strong>S3 Durability:</strong> AWS S3 provides 99.999999999% (11 9's) durability, storing data redundantly across multiple Availability Zones within the region.</li>
-        </ul>
+            <div class="warning-box">
+                <strong style="color: #FF9900;">DELETE_FAILED on BucketNotificationsHandler</strong>
+                <p style="margin-top: 10px;">Your CloudFormation stack is corrupted from a previous failed deployment. Run <code>cdk destroy</code> to clean up, then <code>cdk deploy</code> again.</p>
+            </div>
 
-        <h3>5. AI/ML Services</h3>
-        <ul>
-            <li><strong>Amazon Bedrock Knowledge Base:</strong> Fully managed RAG solution that:
-                <ul>
-                    <li>Chunks documents into 500-token segments with 20% overlap</li>
-                    <li>Generates embeddings using Amazon Titan Embed Text v1</li>
-                    <li>Stores vectors in OpenSearch Serverless</li>
-                    <li>Performs hybrid semantic search</li>
-                </ul>
-            </li>
-            <li><strong>OpenSearch Serverless:</strong> Vector database for storing and querying document embeddings. Automatically managed by Bedrock.</li>
-            <li><strong>Bedrock Foundation Models:</strong> Claude 3.5 Sonnet (default) and other models for generating contextual responses based on retrieved documents.</li>
-            <li><strong>S3 Data Source:</strong> Monitors the documents bucket and processes files automatically.</li>
-            <li><strong>Web Crawler Data Source:</strong> Custom resource for crawling external websites (configurable via API endpoints).</li>
-        </ul>
+            <div class="warning-box">
+                <strong style="color: #FF9900;">"Server side error" at runtime</strong>
+                <p style="margin-top: 10px;">Check CloudWatch logs for the query-bedrock-llm Lambda. Most common cause: model access was revoked after deployment. Re-enable in Bedrock console.</p>
+            </div>
 
-        <h2>Deployment Guide</h2>
-        <p>Deploy the entire serverless stack in minutes using AWS CDK.</p>
+            <div class="warning-box">
+                <strong style="color: #FF9900;">Ingestion stuck in "IN_PROGRESS"</strong>
+                <p style="margin-top: 10px;">Large files or many documents can take 5-10 minutes. Check the ingestion Lambda CloudWatch logs for errors. Verify the S3 event notification is configured correctly.</p>
+            </div>
+        </div>
 
-        <h3>Prerequisites</h3>
-        <ul>
-            <li>✅ AWS CLI installed and configured with credentials</li>
-            <li>✅ Node.js 18+ and npm installed</li>
-            <li>✅ AWS CDK CLI installed: <code>npm install -g aws-cdk</code></li>
-            <li>✅ Docker running (required for Lambda bundling)</li>
-            <li>✅ Git (for cloning the repository)</li>
-        </ul>
+        <div class="section">
+            <h2>🧹 Cleanup</h2>
+            <p style="font-size: 1.1em; color: #5A6C7D; margin-bottom: 25px;">
+                To remove all resources and stop incurring charges, follow these steps:
+            </p>
+            
+            <div class="warning-box">
+                <strong style="font-size: 1.2em; color: #FF9900; display: block; margin-bottom: 10px;">⚠️ Important</strong>
+                This action is irreversible. All uploaded documents and vectorized data will be permanently deleted.
+            </div>
 
-        <h3>Deployment Steps</h3>
-        <ol>
-            <li><strong>Clone the repository:</strong>
-                <pre><code>git clone https://github.com/annabook21/ChatBox_prototype.git
-cd ChatBox_prototype/backend</code></pre>
-            </li>
-            <li><strong>Install CDK dependencies:</strong>
-                <pre><code>npm install</code></pre>
-            </li>
-            <li><strong>(First-time only) Bootstrap CDK:</strong>
-                <pre><code>cdk bootstrap</code></pre>
-            </li>
-            <li><strong>(Optional) Review infrastructure changes:</strong>
-                <pre><code>cdk synth</code></pre>
-            </li>
-            <li><strong>🚀 Deploy the stack:</strong>
-                <pre><code>cdk deploy</code></pre>
-                <p><em>Deployment takes ~10-15 minutes. You'll be prompted to approve IAM changes.</em></p>
-            </li>
-            <li><strong>⚠️ CRITICAL: Enable Bedrock Model Access:</strong>
-                <p>After deployment, you MUST enable model access in the Bedrock console:</p>
-                <ol>
-                    <li>Go to AWS Console → Amazon Bedrock → Model access</li>
-                    <li>Click "Manage model access"</li>
-                    <li>Enable these models:
-                        <ul>
-                            <li><strong>Amazon Titan Embeddings G1 - Text</strong> (<code>amazon.titan-embed-text-v1</code>) - REQUIRED</li>
-                            <li><strong>Claude 3.5 Sonnet</strong> (<code>anthropic.claude-3-5-sonnet-20241022-v2:0</code>)</li>
-                            <li><strong>Claude 3 Haiku</strong> (optional)</li>
-                        </ul>
-                    </li>
-                    <li>Click "Save changes"</li>
-                </ol>
-                <p><em>⚠️ Without Titan Embeddings access, the chatbot will not work!</em></p>
-            </li>
-        </ol>
+            <pre><code>cd backend
+cdk destroy</code></pre>
 
-        <h3>Post-Deployment Outputs</h3>
-        <p>After successful deployment, CDK will output:</p>
-        <ul>
-            <li><strong>CloudFrontURL:</strong> Your public chatbot URL (e.g., <code>d1a2b3c4d5e6f7.cloudfront.net</code>)</li>
-            <li><strong>APIGatewayUrl:</strong> Backend API endpoint (auto-configured in frontend)</li>
-            <li><strong>DocsBucketName:</strong> S3 bucket for document storage</li>
-        </ul>
+            <p style="margin-top: 20px; color: #5A6C7D;">
+                The CDK will prompt for confirmation before deleting resources. Type 'y' to proceed with the cleanup.
+            </p>
+        </div>
 
-        <h2>Usage</h2>
+        <div class="section">
+            <h2>🎨 Design Decisions & Trade-offs</h2>
+            
+            <h3>Manual RAG vs. RetrieveAndGenerate API</h3>
+            <div class="info-box">
+                <strong>Decision:</strong> Implemented manual two-step process (Retrieve → InvokeModel)
+                <p style="margin-top: 10px;"><strong>Rationale:</strong> The combined <code>RetrieveAndGenerate</code> API doesn't support Bedrock Guardrails, which was a critical requirement for implementing Responsible AI features. The manual approach provides finer control over the RAG pipeline and enables content filtering.</p>
+            </div>
 
-        <h3>Accessing the Chatbot</h3>
-        <ol>
-            <li>Navigate to the <strong>CloudFrontURL</strong> from deployment outputs</li>
-            <li>The API URL is automatically configured - no manual setup needed! ✨</li>
-            <li>Select your preferred AI model from the dropdown</li>
-        </ol>
+            <h3>Vector Store Selection</h3>
+            <div class="info-box">
+                <strong>Decision:</strong> Bedrock-managed OpenSearch Serverless
+                <p style="margin-top: 10px;"><strong>Rationale:</strong> Zero operational overhead, automatic scaling, tight integration with Bedrock Knowledge Bases, and no infrastructure to manage. Alternative options like Pinecone or standalone OpenSearch would require additional management and cost optimization.</p>
+            </div>
 
-        <h3>Uploading Documents</h3>
-        <ol>
-            <li><strong>Via Web UI (Recommended):</strong>
-                <ul>
-                    <li>Click the upload area or drag & drop files</li>
-                    <li>Supported formats: PDF, TXT, DOCX, MD</li>
-                    <li>Files upload directly to S3 via pre-signed URLs</li>
-                    <li>Ingestion starts automatically within seconds</li>
-                </ul>
-            </li>
-            <li><strong>Via AWS CLI:</strong>
-                <pre><code>aws s3 cp document.pdf s3://&lt;DocsBucketName&gt;/</code></pre>
-            </li>
-        </ol>
+            <h3>Frontend Architecture</h3>
+            <div class="info-box">
+                <strong>Decision:</strong> Static React SPA hosted on S3 + CloudFront
+                <p style="margin-top: 10px;"><strong>Rationale:</strong> Simplest deployment model with global CDN distribution, automatic HTTPS, and minimal cost. Alternatives like Amplify or EC2 would add complexity without significant benefits for this use case.</p>
+            </div>
 
-        <h3>Asking Questions</h3>
-        <ol>
-            <li>Wait 1-2 minutes for document ingestion to complete</li>
-            <li>Type your question in the chat interface</li>
-            <li>Get AI-generated responses with:
-                <ul>
-                    <li>✅ Source citations showing which documents were used</li>
-                    <li>✅ Relevance scores for each citation</li>
-                    <li>✅ Conversation history preserved in session</li>
-                </ul>
-            </li>
-        </ol>
+            <h3>File Upload Strategy</h3>
+            <div class="info-box">
+                <strong>Decision:</strong> Pre-signed URLs for direct S3 upload
+                <p style="margin-top: 10px;"><strong>Rationale:</strong> Bypasses Lambda's 6MB payload limit, reduces Lambda execution time and cost, and provides better performance for large files. The pre-signed URL expires in 5 minutes for security.</p>
+            </div>
+        </div>
 
-        <h3>Managing Web Crawler (Optional)</h3>
-        <p>To add websites to the knowledge base:</p>
-        <pre><code>curl -X POST https://&lt;API_URL&gt;/prod/web-urls \
-  -H "Content-Type: application/json" \
-  -d '{"urls": ["https://example.com"]}'</code></pre>
+        <div class="section">
+            <h2>🔄 Data Flow Sequence</h2>
+            
+            <h3>Query Flow (User Question → Answer)</h3>
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>User submits question</strong>
+                    Frontend sends POST request to API Gateway <code>/docs</code> endpoint
+                </div>
+            </div>
 
-        <h2>Troubleshooting</h2>
-        
-        <h3>Common Issues</h3>
-        <ul>
-            <li><strong>"Server side error" when asking questions:</strong>
-                <ul>
-                    <li>Check Bedrock model access is enabled (especially Titan Embeddings)</li>
-                    <li>View Lambda logs: <code>aws logs tail /aws/lambda/query-bedrock-llm --follow</code></li>
-                </ul>
-            </li>
-            <li><strong>File upload fails:</strong>
-                <ul>
-                    <li>Verify CORS is configured on the docs bucket</li>
-                    <li>Check browser console for errors</li>
-                    <li>Ensure file is under 5GB</li>
-                </ul>
-            </li>
-            <li><strong>Deployment fails on S3 bucket notifications:</strong>
-                <ul>
-                    <li>Ensure Lambda has <code>s3:PutBucketNotification</code> permission</li>
-                    <li>Check CloudFormation events for detailed error messages</li>
-                </ul>
-            </li>
-        </ul>
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Query Lambda invoked</strong>
+                    Lambda receives request and calls Bedrock Knowledge Base <code>Retrieve</code> API
+                </div>
+            </div>
 
-        <h2>Architecture Highlights</h2>
-        <ul>
-            <li>🚀 <strong>100% Serverless</strong> - No servers to manage, pay only for what you use</li>
-            <li>🔒 <strong>Secure by Default</strong> - HTTPS everywhere, S3 encryption, IAM least privilege</li>
-            <li>⚡ <strong>Auto-Scaling</strong> - Lambda and OpenSearch Serverless scale automatically</li>
-            <li>🌍 <strong>Global CDN</strong> - CloudFront delivers frontend with low latency worldwide</li>
-            <li>🧠 <strong>RAG-Powered</strong> - Retrieval Augmented Generation with source citations</li>
-            <li>🔄 <strong>Real-time Ingestion</strong> - Documents processed automatically on upload</li>
-            <li>💾 <strong>Data Protection</strong> - S3 versioning enables point-in-time recovery and protection from accidental deletions</li>
-            <li>📦 <strong>IaC</strong> - Everything defined in code, reproducible deployments</li>
-        </ul>
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Semantic search executed</strong>
+                    Knowledge Base performs vector similarity search in OpenSearch Serverless
+                </div>
+            </div>
 
-        <h2>Cleanup</h2>
-        <p>To remove all resources and stop incurring charges:</p>
-        <pre><code>cdk destroy</code></pre>
-        <p><em>This will delete the CloudFormation stack and all associated resources.</em></p>
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Context retrieved</strong>
+                    Top-K relevant document chunks returned to Lambda with similarity scores
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>Prompt construction</strong>
+                    Lambda builds augmented prompt with question + retrieved context
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <strong>Guardrail filtering</strong>
+                    Input passes through Bedrock Guardrail for harmful content detection
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">7</div>
+                <div class="step-content">
+                    <strong>Model invocation</strong>
+                    Claude 3 Sonnet generates contextual answer based on augmented prompt
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">8</div>
+                <div class="step-content">
+                    <strong>Output filtering</strong>
+                    Generated answer passes through Guardrail for output content filtering
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">9</div>
+                <div class="step-content">
+                    <strong>Response returned</strong>
+                    Filtered answer with source citations sent back to frontend for display
+                </div>
+            </div>
+
+            <h3>Ingestion Flow (Document Upload → Vectorization)</h3>
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Upload initiated</strong>
+                    Frontend calls <code>/upload</code> endpoint to request pre-signed S3 URL
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Pre-signed URL generated</strong>
+                    Upload Lambda creates short-lived (5 min) signed URL for direct S3 access
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Direct upload</strong>
+                    Frontend uploads file directly to S3 bucket using the pre-signed URL
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>S3 event trigger</strong>
+                    S3 PUT event automatically invokes Ingestion Lambda function
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>Ingestion job started</strong>
+                    Lambda calls <code>StartIngestionJob</code> on Bedrock Knowledge Base
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <strong>Document processing</strong>
+                    Knowledge Base extracts text, chunks content using configured strategy
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">7</div>
+                <div class="step-content">
+                    <strong>Vectorization</strong>
+                    Titan G1 Embeddings model generates vector embeddings for each chunk
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">8</div>
+                <div class="step-content">
+                    <strong>Index storage</strong>
+                    Vector embeddings stored in OpenSearch Serverless for semantic retrieval
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">9</div>
+                <div class="step-content">
+                    <strong>Status polling</strong>
+                    Frontend polls <code>/ingestion-status</code> endpoint until completion
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Monitoring & Observability</h2>
+            
+            <div class="architecture-grid">
+                <div class="component-card">
+                    <h4><span class="component-icon">📈</span> CloudWatch Dashboard</h4>
+                    <p>Real-time metrics for Lambda invocations, errors, duration, and Bedrock API calls with customizable widgets.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🔔</span> Automated Alarms</h4>
+                    <p>Pre-configured alarms for Lambda errors, DLQ messages, and API Gateway 5xx errors with SNS notifications.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🔬</span> X-Ray Tracing</h4>
+                    <p>Distributed tracing across Lambda, Bedrock, and S3 to identify performance bottlenecks and optimize latency.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">📝</span> Structured Logging</h4>
+                    <p>JSON-formatted logs with request IDs, correlation IDs, and contextual metadata for efficient debugging.</p>
+                </div>
+            </div>
+
+            <h3>Key Metrics to Monitor</h3>
+            <ul>
+                <li><strong>Query Lambda Duration:</strong> Target < 5 seconds (P95). Optimize if consistently higher.</li>
+                <li><strong>Bedrock Token Usage:</strong> Monitor input/output tokens for cost optimization opportunities.</li>
+                <li><strong>Ingestion Success Rate:</strong> Should be > 95%. Investigate DLQ if failures increase.</li>
+                <li><strong>API Gateway 4xx Errors:</strong> High rates indicate client issues or authentication problems.</li>
+                <li><strong>Lambda Cold Start Duration:</strong> Monitor and consider provisioned concurrency for latency-sensitive workloads.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Future Enhancements</h2>
+            
+            <div class="architecture-grid">
+                <div class="component-card">
+                    <h4><span class="component-icon">👥</span> Multi-User Support</h4>
+                    <p>Add Cognito authentication, user-specific document isolation, and role-based access control.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">💬</span> Conversation Memory</h4>
+                    <p>Store chat history in DynamoDB to enable multi-turn conversations and context retention.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🔄</span> Streaming Responses</h4>
+                    <p>Implement WebSocket API for real-time token streaming, improving perceived performance.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🌐</span> Multi-Language Support</h4>
+                    <p>Add Amazon Translate integration for document ingestion and query translation.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">📊</span> Analytics Dashboard</h4>
+                    <p>Build usage analytics with QuickSight: query patterns, popular topics, user engagement metrics.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🎯</span> Advanced Retrieval</h4>
+                    <p>Implement hybrid search (semantic + keyword), reranking models, and query expansion techniques.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📚 Additional Resources</h2>
+            
+            <div class="tech-stack">
+                <a href="https://docs.aws.amazon.com/bedrock/" target="_blank" class="tech-badge">Bedrock Docs</a>
+                <a href="https://docs.aws.amazon.com/cdk/" target="_blank" class="tech-badge">CDK Documentation</a>
+                <a href="https://aws.amazon.com/architecture/well-architected/" target="_blank" class="tech-badge">Well-Architected Framework</a>
+                <a href="https://docs.aws.amazon.com/lambda/" target="_blank" class="tech-badge">Lambda Best Practices</a>
+                <a href="https://calculator.aws/" target="_blank" class="tech-badge">Pricing Calculator</a>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="background: linear-gradient(135deg, #232F3E 0%, #1a2332 100%); padding: 40px 20px; text-align: center; color: #AAB7B8; margin-top: 60px;">
+        <p style="font-size: 1.1em; margin-bottom: 10px;">Built with ❤️ using AWS Serverless Services</p>
+        <p style="font-size: 0.95em; opacity: 0.8;">© 2025 AWS Contextual Chatbot | Production-Ready RAG Solution</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>
-        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#FF9900',
+                primaryTextColor: '#232F3E',
+                primaryBorderColor: '#232F3E',
+                lineColor: '#5A6C7D',
+                secondaryColor: '#01A88D',
+                tertiaryColor: '#146EB4',
+                fontSize: '16px',
+                fontFamily: 'Amazon Ember, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            },
+            flowchart: {
+                curve: 'basis',
+                padding: 20,
+                nodeSpacing: 50,
+                rankSpacing: 80,
+                diagramPadding: 20,
+                useMaxWidth: true
+            }
+        });
     </script>
 </body>
 </html>
