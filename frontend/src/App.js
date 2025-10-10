@@ -168,7 +168,7 @@ const App = (props) => {
         elevation={3}
         sx={{
           padding: { xs: 3, sm: 4, md: 6 },
-          maxWidth: { xs: "100%", sm: "900px", md: "1200px", lg: "1400px" },
+          maxWidth: { xs: "100%", sm: "800px", md: "1000px", lg: "1100px" },
           width: "100%",
           margin: "0 auto",
           borderRadius: 4,
