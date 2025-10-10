@@ -208,8 +208,8 @@ const App = (props) => {
           centered
           sx={{ mb: 3 }}
         >
-          <Tab label="Chatbot" />
-          <Tab label="Architecture" />
+          <Tab label="💬 Chatbot" />
+          <Tab label="📚 Architecture" />
         </Tabs>
 
         {activeTab === 0 && (
