@@ -3,7 +3,7 @@ import Paper from "@mui/material/Paper";
 import { QAHeader } from "./QAHeader";
 import Chat from "./Chat";
 import { useState, useEffect } from "react";
-import { TextField, Typography } from "@mui/material";
+import { TextField, Typography, Tabs, Tab } from "@mui/material";
 import * as React from "react";
 import Divider from "@mui/material/Divider";
 import Button from "@mui/material/Button";
@@ -13,6 +13,7 @@ import IconButton from "@mui/material/IconButton";
 import SendIcon from "@mui/icons-material/Send";
 import FileUpload from "./FileUpload";
 import Alert from "@mui/material/Alert";
+import Documentation from "./Documentation";
 
 // Component to display the live status of document ingestion
 const IngestionStatus = ({ status }) => {
@@ -57,6 +58,7 @@ const App = (props) => {
   const [spinner, setSpinner] = useState(false);
   const [sessionId, setSessionId] = useState(undefined);
   const [ingestionStatus, setIngestionStatus] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
 
   // Load API URL from config.json at startup
   useEffect(() => {
@@ -199,16 +201,26 @@ const App = (props) => {
         >
           Powered by Amazon Bedrock Knowledge Bases
         </Typography>
-        <br></br>
-        <br></br>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            height: "100%",
-          }}
+
+        <Tabs 
+          value={activeTab} 
+          onChange={(event, newValue) => setActiveTab(newValue)}
+          centered
+          sx={{ mb: 3 }}
         >
+          <Tab label="Chatbot" />
+          <Tab label="Architecture" />
+        </Tabs>
+
+        {activeTab === 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              height: "100%",
+            }}
+          >
           <QAHeader
             setBaseUrl={setBaseUrl}
             baseUrl={baseUrl}
@@ -277,6 +289,12 @@ const App = (props) => {
             <SendIcon />
           </IconButton>
         </Box>
+        </Box>
+        )}
+
+        {activeTab === 1 && (
+          <Documentation />
+        )}
       </Paper>
     </Box>
   );
