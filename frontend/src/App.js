@@ -263,32 +263,32 @@ const App = (props) => {
               ) : (
                 <br></br>
               )}
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingBottom: "20px",
-                paddingTop: "20px",
-              }}
-            >
-              <TextField
-                disabled={spinner || !baseUrl}
-                variant="standard"
-                label="Enter your question here"
-                value={question}
-                onChange={(e) => setQuestion(e.target?.value)}
-                onKeyDown={handleKeyDown}
-                sx={{ width: "95%" }}
-              />
-              <IconButton
-                disabled={spinner || !baseUrl}
-                onClick={handleSendQuestion}
-                color="primary"
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingBottom: "20px",
+                  paddingTop: "20px",
+                }}
               >
-                <SendIcon />
-              </IconButton>
+                <TextField
+                  disabled={spinner || !baseUrl}
+                  variant="standard"
+                  label="Enter your question here"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target?.value)}
+                  onKeyDown={handleKeyDown}
+                  sx={{ width: "95%" }}
+                />
+                <IconButton
+                  disabled={spinner || !baseUrl}
+                  onClick={handleSendQuestion}
+                  color="primary"
+                >
+                  <SendIcon />
+                </IconButton>
+              </Box>
             </Box>
           </>
         )}
