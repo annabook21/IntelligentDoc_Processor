@@ -159,19 +159,18 @@ const App = (props) => {
   return (
     <Box
       sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
         minHeight: "100vh",
-        padding: "30px",
+        padding: { xs: "20px", sm: "30px", md: "40px" },
         background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       }}
     >
       <Paper
         elevation={3}
         sx={{
-          padding: 6,
-          maxWidth: 700,
+          padding: { xs: 3, sm: 4, md: 6 },
+          maxWidth: { xs: "100%", sm: "900px", md: "1200px", lg: "1400px" },
+          width: "100%",
+          margin: "0 auto",
           borderRadius: 4,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           backdropFilter: 'blur(10px)',
