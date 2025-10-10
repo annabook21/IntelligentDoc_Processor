@@ -249,7 +249,7 @@ const Documentation = () => {
         'Access the internet',
         'Remember previous conversations (stateless)'
       ],
-      whyNotChatGPT: 'ChatGPT doesn\'t know about YOUR documents. It would make up answers. This system only uses YOUR documents.'
+      whyNotChatGPT: 'ChatGPT has general knowledge but doesn\'t know about YOUR specific documents. It might make up answers or give outdated info. This system uses only YOUR uploaded documents for accurate, source-verified answers.'
     },
     {
       id: 'guardrails',
@@ -457,7 +457,7 @@ const Documentation = () => {
             </div>
             <div className="why-box">
               <h4>Why not just use ChatGPT?</h4>
-              <p>ChatGPT doesn't know about YOUR documents. It would make up answers. This system only uses YOUR documents.</p>
+              <p>ChatGPT has general knowledge but doesn't know about YOUR specific documents. It might make up answers or give outdated info. This system uses only YOUR uploaded documents for accurate, source-verified answers.</p>
             </div>
             <div className="why-box">
               <h4>Why Lambda instead of a server?</h4>
