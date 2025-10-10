@@ -202,6 +202,20 @@ export class BackendStack extends Stack {
     // Grant Lambda read access to bucket
     docsBucket.grantRead(lambdaIngestionJob);
 
+    // CRITICAL: Grant BucketNotificationsHandler permissions BEFORE adding notifications
+    // This prevents AccessDenied errors during stack updates/deletes
+    const stack = Stack.of(this);
+    const bucketNotificationsHandler = stack.node.tryFindChild('BucketNotificationsHandler') as lambda.Function;
+    if (bucketNotificationsHandler) {
+      bucketNotificationsHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: [
+          's3:PutBucketNotificationConfiguration',
+          's3:GetBucketNotificationConfiguration'
+        ],
+        resources: [docsBucket.bucketArn],
+      }));
+    }
+
     docsBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED_PUT,
       new s3n.LambdaDestination(lambdaIngestionJob)
@@ -474,17 +488,5 @@ export class BackendStack extends Stack {
     new CfnOutput(this, "CloudFrontURL", {
       value: distribution.distributionDomainName,
     });
-
-    // This is the definitive fix for the S3 notification race condition. The CDK's
-    // internal BucketNotificationsHandler (a singleton Lambda) requires explicit
-    // permissions to update bucket notifications during stack updates/deletes.
-    const stack = Stack.of(this);
-    const bucketNotificationsHandler = stack.node.tryFindChild('BucketNotificationsHandler') as lambda.Function;
-    if (bucketNotificationsHandler) {
-      bucketNotificationsHandler.addToRolePolicy(new iam.PolicyStatement({
-        actions: ['s3:PutBucketNotificationConfiguration'],
-        resources: [docsBucket.bucketArn],
-      }));
-    }
   }
 }
