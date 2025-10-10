@@ -213,83 +213,84 @@ const App = (props) => {
         </Tabs>
 
         {activeTab === 0 && (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              height: "100%",
-            }}
-          >
-          <QAHeader
-            setBaseUrl={setBaseUrl}
-            baseUrl={baseUrl}
-          />
-          <Divider sx={{ my: 3 }} />
-
-          <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
-            2. Upload Documents (Optional):
-          </Typography>
-          <FileUpload baseUrl={baseUrl} onUploadStart={() => setIngestionStatus('STARTING')} />
-          <IngestionStatus status={ingestionStatus} />
-          
-          <Divider sx={{ my: 3 }} />
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingBottom: "10px",
-              paddingTop: "20px",
-            }}
-          >
-            <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>3. Ask a question:</Typography>
-            <Button
-              disabled={history.length === 0}
-              startIcon={<DeleteIcon />}
-              onClick={onClearHistory}
+          <>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                height: "100%",
+              }}
             >
-              Clear History
-            </Button>
-          </Box>
-          <Chat history={history} />
-          <br></br>
-          {spinner ? (
-            <Box sx={{ justifyContent: "center", padding: "20px" }}>
-              <LoadingSpinner />
+              <QAHeader
+                setBaseUrl={setBaseUrl}
+                baseUrl={baseUrl}
+              />
+              <Divider sx={{ my: 3 }} />
+
+              <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
+                2. Upload Documents (Optional):
+              </Typography>
+              <FileUpload baseUrl={baseUrl} onUploadStart={() => setIngestionStatus('STARTING')} />
+              <IngestionStatus status={ingestionStatus} />
+              
+              <Divider sx={{ my: 3 }} />
+
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingBottom: "10px",
+                  paddingTop: "20px",
+                }}
+              >
+                <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>3. Ask a question:</Typography>
+                <Button
+                  disabled={history.length === 0}
+                  startIcon={<DeleteIcon />}
+                  onClick={onClearHistory}
+                >
+                  Clear History
+                </Button>
+              </Box>
+              <Chat history={history} />
+              <br></br>
+              {spinner ? (
+                <Box sx={{ justifyContent: "center", padding: "20px" }}>
+                  <LoadingSpinner />
+                </Box>
+              ) : (
+                <br></br>
+              )}
             </Box>
-          ) : (
-            <br></br>
-          )}
-        </Box>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            paddingBottom: "20px",
-            paddingTop: "20px",
-          }}
-        >
-          <TextField
-            disabled={spinner || !baseUrl}
-            variant="standard"
-            label="Enter your question here"
-            value={question}
-            onChange={(e) => setQuestion(e.target?.value)}
-            onKeyDown={handleKeyDown}
-            sx={{ width: "95%" }}
-          />
-          <IconButton
-            disabled={spinner || !baseUrl}
-            onClick={handleSendQuestion}
-            color="primary"
-          >
-            <SendIcon />
-          </IconButton>
-        </Box>
-        </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingBottom: "20px",
+                paddingTop: "20px",
+              }}
+            >
+              <TextField
+                disabled={spinner || !baseUrl}
+                variant="standard"
+                label="Enter your question here"
+                value={question}
+                onChange={(e) => setQuestion(e.target?.value)}
+                onKeyDown={handleKeyDown}
+                sx={{ width: "95%" }}
+              />
+              <IconButton
+                disabled={spinner || !baseUrl}
+                onClick={handleSendQuestion}
+                color="primary"
+              >
+                <SendIcon />
+              </IconButton>
+            </Box>
+          </>
         )}
 
         {activeTab === 1 && (
