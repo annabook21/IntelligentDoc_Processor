@@ -6,13 +6,12 @@ const {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } = require("@aws-sdk/client-bedrock-runtime");
+const middy = require('@middy/core');
+const httpJsonBodyParser = require('@middy/http-json-body-parser');
+const httpHeaderNormalizer = require('@middy/http-header-normalizer');
 
 const agentClient = new BedrockAgentRuntimeClient({ region: process.env.AWS_REGION });
 const runtimeClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
-
-import middy from '@middy/core';
-import httpJsonBodyParser from '@middy/http-json-body-parser';
-import httpHeaderNormalizer from '@middy/http-header-normalizer';
 
 exports.handler = 
   middy()
@@ -60,7 +59,7 @@ exports.handler =
           messages: [
             {
               role: "user",
-              content: `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`
+              content: prompt
             }
           ]
         }),
