@@ -103,6 +103,31 @@ graph TD
 
 ## Deployment
 
+### Quick Start: Automated DR Deployment 🚀
+
+**For production deployments with disaster recovery**, use the automated script:
+
+```bash
+# Deploy to both us-west-2 (primary) and us-east-1 (failover)
+./deploy-chatbot-with-dr.sh
+
+# Or with custom domain for Route 53 failover
+./deploy-chatbot-with-dr.sh --domain api.yourdomain.com
+```
+
+This script automatically:
+- ✅ Checks Bedrock model availability in both regions
+- ✅ Bootstraps both regions
+- ✅ Deploys full stack to primary and failover
+- ✅ Creates Route 53 health checks
+- ✅ Configures automatic failover
+
+**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for details.**
+
+---
+
+### Manual Deployment
+
 ### Prerequisites
 
 Make sure you have these installed/configured first:
