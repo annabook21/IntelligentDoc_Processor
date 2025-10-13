@@ -22,32 +22,57 @@ Click "Save changes" and wait for access to be granted before proceeding with de
 
 ## Architecture
 
-The architecture is fully serverless and event-driven:
+The architecture is fully serverless, event-driven, and **multi-region with automatic failover**:
 
 ```mermaid
 graph TD
-    subgraph "User Interaction"
-        User[<fa:fa-user> User] -->|1. Accesses UI| FE_CF[<fa:fa-cloud> CloudFront Distribution]
-        FE_CF -->|2. Serves static content| FE_S3[<fa:fa-box-archive> S3 Frontend Bucket]
-        User -->|3. Sends Query| APIGW[<fa:fa-server> API Gateway]
+    subgraph "Global Traffic Management"
+        User[<fa:fa-user> User] -->|1. DNS Lookup| R53[<fa:fa-globe> Route 53]
+        R53 -->|Health Check: /health endpoint| HC[<fa:fa-heartbeat> Health Checks]
+        R53 -->|Routes to healthy region| Regions
     end
 
-    subgraph "Data Ingestion"
-        Admin[<fa:fa-user-shield> Admin] -->|A. Uploads File| DS_S3[<fa:fa-box-archive> S3 Docs Bucket]
-        DS_S3 -->|B. Triggers Event| IngestLambda[<fa:fa-bolt> Ingestion Lambda]
-        IngestLambda -->|C. Starts Job| BedrockKB[<fa:fa-brain> Bedrock Knowledge Base]
-        DS_S3 -->|Replicates to| DR_S3[<fa:fa-box-archive> S3 DR Bucket]
+    subgraph "Primary Region - us-west-2"
+        Regions -->|2. Accesses UI| FE_CF1[<fa:fa-cloud> CloudFront]
+        FE_CF1 -->|Serves static| FE_S3_1[<fa:fa-box> Frontend S3]
+        
+        User -->|3. API Requests| APIGW1[<fa:fa-server> API Gateway]
+        APIGW1 -->|/docs| QueryLambda1[<fa:fa-bolt> Query Lambda]
+        APIGW1 -->|/upload| UploadLambda1[<fa:fa-bolt> Upload Lambda]
+        APIGW1 -->|/ingestion-status| StatusLambda1[<fa:fa-bolt> Status Lambda]
+        APIGW1 -->|/health| HealthLambda1[<fa:fa-heartbeat> Health Lambda]
+        
+        QueryLambda1 -->|Retrieve & Generate| BedrockKB1[<fa:fa-brain> Bedrock KB]
+        DS_S3_1[<fa:fa-box> Docs S3] -->|ObjectCreated| IngestLambda1[<fa:fa-bolt> Ingest Lambda]
+        IngestLambda1 -->|Start Job| BedrockKB1
+        
+        DS_S3_1 -.->|Cross-Region Replication| DS_S3_2
     end
 
-    subgraph "Backend Logic"
-        APIGW -->|4. Invokes| QueryLambda[<fa:fa-bolt> Query Lambda]
-        QueryLambda -->|5. Retrieves & Generates| BedrockKB
-        BedrockKB -->|6. Returns Response & Citations| QueryLambda
-        QueryLambda -->|7. Returns to User| APIGW
+    subgraph "Failover Region - us-east-1"
+        Regions -->|Failover route| FE_CF2[<fa:fa-cloud> CloudFront]
+        FE_CF2 -->|Serves static| FE_S3_2[<fa:fa-box> Frontend S3]
+        
+        User -.->|If primary down| APIGW2[<fa:fa-server> API Gateway]
+        APIGW2 -.->|/docs| QueryLambda2[<fa:fa-bolt> Query Lambda]
+        APIGW2 -.->|/health| HealthLambda2[<fa:fa-heartbeat> Health Lambda]
+        
+        QueryLambda2 -.->|Retrieve & Generate| BedrockKB2[<fa:fa-brain> Bedrock KB]
+        DS_S3_2[<fa:fa-box> Docs S3 Replica]
+    end
+
+    subgraph "Monitoring & Observability"
+        CW[<fa:fa-chart-line> CloudWatch Dashboard] -->|Monitors| APIGW1
+        CW -->|Monitors| QueryLambda1
+        CW -->|Monitors| IngestLambda1
+        Alarms[<fa:fa-bell> CloudWatch Alarms] -->|Alerts| SNS[<fa:fa-envelope> SNS Topic]
+        DLQ[<fa:fa-warning> Dead Letter Queue]
     end
 
     style User fill:#f9f,stroke:#333,stroke-width:2px
-    style Admin fill:#ccf,stroke:#333,stroke-width:2px
+    style R53 fill:#8C4FFF,stroke:#333,stroke-width:2px
+    style HC fill:#01A88D,stroke:#333,stroke-width:2px
+    style CW fill:#FF9900,stroke:#333,stroke-width:2px
 ```
 
 ---
@@ -65,22 +90,28 @@ graph TD
   - **`/docs` (POST):** The primary endpoint for submitting user queries to the chatbot.
   - **`/upload` (POST):** Generates pre-signed URLs for direct file uploads to S3.
   - **`/ingestion-status` (GET):** Returns the status of document ingestion jobs.
+  - **`/health` (GET):** Health check endpoint that tests Bedrock KB connectivity for Route 53 monitoring and DR failover.
 
-### 3. Backend Logic
+### 3. Backend Logic (5 Lambda Functions)
 
 - **Query Lambda (`AWS::Lambda::Function`):** The core of the chatbot's logic. It's invoked by the API Gateway and is responsible for:
   - Receiving the user's query.
   - Calling the Bedrock `Retrieve` API to get relevant context from the knowledge base.
   - Calling the Bedrock `InvokeModel` API with Claude 3 Sonnet to generate an answer.
-  - Applying Bedrock Guardrails for content safety.
+  - Applying Bedrock Guardrails for content safety (input and output filtering).
   - Returning the response, including citations, to the user.
+  
+- **Upload Lambda (`AWS::Lambda::Function`):** Generates pre-signed S3 URLs to allow the frontend to upload files directly to the Docs S3 Bucket without proxying through the backend.
+
+- **Ingestion Lambda (`AWS::Lambda::Function`):** Triggered by S3 `PUT` events on the Docs S3 Bucket. This function starts an ingestion job in Bedrock, which processes the new document and adds it to the knowledge base.
+
+- **Ingestion Status Lambda (`AWS::Lambda::Function`):** Polls Bedrock to check the status of ingestion jobs and reports back to the frontend.
+
+- **Health Check Lambda (`AWS::Lambda::Function`):** NEW - Tests actual Bedrock Knowledge Base connectivity and returns system health status for Route 53 health checks and DR monitoring.
 
 ### 4. Data Ingestion & Knowledge Base
 
-- **Docs S3 Bucket (`AWS::S3::Bucket`):** The primary data source for the knowledge base. When a user uploads a file to this bucket, it triggers the ingestion process. It is configured with versioning for data protection.
-- **Ingestion Lambda (`AWS::Lambda::Function`):** Triggered by S3 `PUT` events on the Docs S3 Bucket. This function starts an ingestion job in Bedrock, which processes the new document and adds it to the knowledge base.
-- **Upload Lambda (`AWS::Lambda::Function`):** Generates pre-signed S3 URLs to allow the frontend to upload files directly to the Docs S3 Bucket without proxying through the backend.
-- **Ingestion Status Lambda (`AWS::Lambda::Function`):** Polls Bedrock to check the status of ingestion jobs and reports back to the frontend.
+- **Docs S3 Bucket (`AWS::S3::Bucket`):** The primary data source for the knowledge base. When a user uploads a file to this bucket, it triggers the ingestion process. It is configured with versioning for data protection and optional cross-region replication for DR.
 - **Bedrock Knowledge Base (`Bedrock::VectorKnowledgeBase`):** The heart of the RAG pipeline. It automatically chunks documents into 500-token segments with 20% overlap, vectorizes them using Titan Embeddings, and stores them in a vector store for efficient retrieval.
 
 ### 5. Security & Content Safety
@@ -91,6 +122,12 @@ graph TD
 
 ### 6. Monitoring & Observability
 
+- **CloudWatch Dashboard (`AWS::CloudWatch::Dashboard`):** Interactive dashboard named `contextual-chatbot-metrics` with 5 widget rows:
+  - API Gateway performance (requests and errors)
+  - Lambda function errors (Query and Ingestion)
+  - Lambda duration metrics
+  - Dead Letter Queue message count
+  - Lambda invocation counts
 - **CloudWatch Alarms:** Three alarms for monitoring system health:
   - Query Lambda errors (>5 errors in 5 minutes)
   - Ingestion Lambda errors (>3 errors in 5 minutes)
@@ -98,6 +135,15 @@ graph TD
 - **SNS Topic (`AWS::SNS::Topic`):** Publishes alerts when alarms trigger.
 - **Dead Letter Queue (`AWS::SQS::Queue`):** Captures failed ingestion events for manual review and retry.
 - **X-Ray Tracing:** Enabled on all Lambda functions for distributed tracing and performance analysis.
+
+### 7. Disaster Recovery & High Availability
+
+- **Route 53 Health Checks (`AWS::Route53::HealthCheck`):** Monitors the `/health` endpoint in both regions every 30 seconds. Automatic failover after 3 consecutive failures (90 seconds).
+- **Multi-Region Deployment:** Full stack can be deployed to both us-west-2 (primary) and us-east-1 (failover) using automated scripts.
+- **Cross-Region Replication:** S3 documents can be automatically replicated from primary to failover region with 15-minute SLA.
+- **Recovery Objectives:**
+  - **RTO (Recovery Time Objective):** ~2-3 minutes (automatic failover via Route 53)
+  - **RPO (Recovery Point Objective):** 0-15 minutes (S3 replication time)
 
 ---
 

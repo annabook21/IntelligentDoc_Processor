@@ -262,6 +262,119 @@ const ServiceCard = ({ service, isExpanded, onToggle }) => {
               <p>{service.costComparison}</p>
             </div>
           )}
+
+          {/* Dashboard Widgets */}
+          {service.widgets && (
+            <div className="service-section">
+              <div className="section-header">📊 Dashboard Widgets</div>
+              {service.widgets.map((widget, idx) => (
+                <div key={idx} className="widget-box">
+                  <h4 className="widget-name">{widget.name}</h4>
+                  <p><strong>Metrics:</strong> {widget.metrics.join(', ')}</p>
+                  <p><strong>Purpose:</strong> {widget.purpose}</p>
+                </div>
+              ))}
+              {service.defaultView && (
+                <p className="widget-meta"><strong>Default View:</strong> {service.defaultView}</p>
+              )}
+            </div>
+          )}
+
+          {/* Health Checks */}
+          {service.healthChecks && (
+            <div className="service-section">
+              <div className="section-header">💓 Health Check Configuration</div>
+              {service.healthChecks.map((check, idx) => (
+                <div key={idx} className="health-check-box">
+                  <h4 className="health-check-region">{check.region}</h4>
+                  <p><strong>Endpoint:</strong> {check.endpoint}</p>
+                  <p><strong>Interval:</strong> {check.interval}</p>
+                  {check.failureThreshold && (
+                    <p><strong>Failure Threshold:</strong> {check.failureThreshold}</p>
+                  )}
+                  {check.action && (
+                    <p className="health-check-action"><strong>Action:</strong> {check.action}</p>
+                  )}
+                  {check.status && (
+                    <p><strong>Status:</strong> {check.status}</p>
+                  )}
+                </div>
+              ))}
+              {service.whatItChecks && (
+                <p className="health-check-note">ℹ️ {service.whatItChecks}</p>
+              )}
+            </div>
+          )}
+
+          {/* Failover Flow */}
+          {service.failoverFlow && (
+            <div className="service-section">
+              <div className="section-header">🔄 Failover Process</div>
+              <ol className="process-list">
+                {service.failoverFlow.map((step, idx) => (
+                  <li key={idx} className="process-step">{step}</li>
+                ))}
+              </ol>
+              {service.rto && (
+                <div className="recovery-metrics">
+                  <p><strong>RTO (Recovery Time):</strong> {service.rto}</p>
+                  <p><strong>RPO (Data Loss):</strong> {service.rpo}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Deployed Regions */}
+          {service.deployedRegions && (
+            <div className="service-section">
+              <div className="section-header">🗺️ Deployed Regions</div>
+              {service.deployedRegions.map((region, idx) => (
+                <div key={idx} className="region-box">
+                  <h4 className="region-name">{region.name}</h4>
+                  <p><strong>Purpose:</strong> {region.purpose}</p>
+                  <p><strong>Components:</strong> {region.components}</p>
+                </div>
+              ))}
+              {service.dataSync && (
+                <p className="region-sync">🔄 <strong>Data Sync:</strong> {service.dataSync}</p>
+              )}
+              {service.realDeployment && (
+                <p className="region-note">ℹ️ {service.realDeployment}</p>
+              )}
+            </div>
+          )}
+
+          {/* Why Exists (for new components) */}
+          {service.whyExists && !service.magic && (
+            <div className="service-section info-section">
+              <div className="section-header">🤔 Why This Exists</div>
+              <p>{service.whyExists}</p>
+            </div>
+          )}
+
+          {/* Cost per month (for DR components) */}
+          {service.costPerMonth && (
+            <div className="service-section cost-section">
+              <div className="section-header">💰 Monthly Cost</div>
+              <p>{service.costPerMonth}</p>
+            </div>
+          )}
+
+          {/* Automated Setup */}
+          {service.automatedSetup && (
+            <div className="service-section highlight-section">
+              <div className="section-header">🚀 Automated Setup</div>
+              <p><code>{service.automatedSetup}</code></p>
+            </div>
+          )}
+
+          {/* Business Value */}
+          {service.businessValue && (
+            <div className="service-section magic-section">
+              <div className="section-header">💼 Business Value</div>
+              <p>{service.businessValue}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

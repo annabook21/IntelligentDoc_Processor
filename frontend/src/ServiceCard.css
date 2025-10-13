@@ -441,6 +441,111 @@
   border-left-color: #FF9900;
 }
 
+/* Widget Box (for CloudWatch Dashboard) */
+.widget-box {
+  background: rgba(255, 153, 0, 0.1);
+  border: 1px solid rgba(255, 153, 0, 0.3);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.widget-box:last-child {
+  margin-bottom: 0;
+}
+
+.widget-name {
+  color: #FF9900;
+  font-size: 1.1em;
+  margin-bottom: 10px;
+}
+
+.widget-meta {
+  color: #AAB7B8;
+  margin-top: 10px;
+  font-style: italic;
+}
+
+/* Health Check Box (for Route 53) */
+.health-check-box {
+  background: rgba(140, 79, 255, 0.1);
+  border: 1px solid rgba(140, 79, 255, 0.3);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.health-check-box:last-child {
+  margin-bottom: 0;
+}
+
+.health-check-region {
+  color: #8C4FFF;
+  font-size: 1.1em;
+  margin-bottom: 10px;
+}
+
+.health-check-action {
+  color: #FF9900;
+  font-weight: 600;
+}
+
+.health-check-note {
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(1, 168, 141, 0.1);
+  border-radius: 5px;
+  color: #AAB7B8;
+  font-size: 0.95em;
+}
+
+/* Region Box (for Multi-Region) */
+.region-box {
+  background: rgba(20, 110, 180, 0.1);
+  border: 1px solid rgba(20, 110, 180, 0.3);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.region-box:last-child {
+  margin-bottom: 0;
+}
+
+.region-name {
+  color: #146EB4;
+  font-size: 1.1em;
+  margin-bottom: 10px;
+}
+
+.region-sync,
+.region-note {
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  color: #AAB7B8;
+  font-size: 0.95em;
+}
+
+/* Recovery Metrics */
+.recovery-metrics {
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(1, 168, 141, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #01A88D;
+}
+
+.recovery-metrics p {
+  color: #AAB7B8;
+  margin-bottom: 8px;
+}
+
+.recovery-metrics p:last-child {
+  margin-bottom: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .service-card-header {

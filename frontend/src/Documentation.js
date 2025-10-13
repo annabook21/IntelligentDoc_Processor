@@ -83,7 +83,7 @@ const Documentation = () => {
       color: '#FF4F8B',
       shortDesc: 'Request router and bouncer with security',
       responsibilities: [
-        'Expose three HTTP endpoints: /docs, /upload, /ingestion-status',
+        'Expose four HTTP endpoints: /docs, /upload, /ingestion-status, /health',
         'Validate requests BEFORE they hit Lambda',
         'Apply throttling: 100 req/sec, 200 burst limit',
         'Log everything to CloudWatch',
@@ -93,7 +93,8 @@ const Documentation = () => {
       endpoints: [
         { method: 'POST', path: '/docs', target: 'Query Lambda', purpose: 'Submit questions' },
         { method: 'POST', path: '/upload', target: 'Upload Lambda', purpose: 'Get pre-signed URL' },
-        { method: 'GET', path: '/ingestion-status', target: 'Status Lambda', purpose: 'Check job status' }
+        { method: 'GET', path: '/ingestion-status', target: 'Status Lambda', purpose: 'Check job status' },
+        { method: 'GET', path: '/health', target: 'Health Lambda', purpose: 'System health for DR' }
       ],
       critical: 'API Gateway is the ONLY entry point to your backend. If it goes down, entire API is unavailable (99.95% uptime SLA).'
     },
@@ -103,7 +104,7 @@ const Documentation = () => {
       name: 'AWS Lambda',
       category: 'Compute',
       color: '#FF9900',
-      shortDesc: 'Four serverless workers, each with a specific job',
+      shortDesc: 'Five serverless workers, each with a specific job',
       functions: [
         {
           name: 'Query Lambda',
@@ -155,6 +156,18 @@ const Documentation = () => {
             'Return simplified status (STARTING, IN_PROGRESS, COMPLETE, FAILED)'
           ],
           polling: 'Frontend polls every 5 seconds until COMPLETE or FAILED'
+        },
+        {
+          name: 'Health Check Lambda',
+          responsibility: 'Monitor system health for disaster recovery',
+          steps: [
+            'Test Bedrock Knowledge Base connectivity',
+            'Verify Lambda execution environment',
+            'Check configuration and environment variables',
+            'Return health status: healthy (200) or unhealthy (503)'
+          ],
+          trigger: 'Route 53 health checks (every 30 seconds)',
+          critical: 'Used by Route 53 for automatic failover to backup region'
         }
       ],
       costComparison: 'Regular server: $50/month 24/7. Lambda: ~$0.20 for 1,000 questions/month'
@@ -286,6 +299,106 @@ const Documentation = () => {
       algorithm: 'HNSW (Hierarchical Navigable Small World) - multi-layer graph for sub-100ms search',
       whyNotMySQL: 'MySQL compares text exactly. OpenSearch compares 1,536-dimensional vectors using cosine similarity in milliseconds. MySQL would take minutes.',
       scale: 'Handles millions of vectors with consistent sub-100ms query time'
+    },
+    {
+      id: 'cloudwatch-dashboard',
+      icon: '📊',
+      name: 'CloudWatch Dashboard',
+      category: 'Monitoring',
+      color: '#FF9900',
+      shortDesc: 'Real-time metrics visualization and system monitoring',
+      responsibility: 'Provide unified view of system health, performance, and errors across all services',
+      dashboardName: 'contextual-chatbot-metrics',
+      widgets: [
+        {
+          name: 'API Gateway Performance',
+          metrics: ['Total Requests', '4xx Client Errors', '5xx Server Errors'],
+          purpose: 'Track API usage and identify client vs server errors'
+        },
+        {
+          name: 'Lambda Errors',
+          metrics: ['Query Lambda errors', 'Ingestion Lambda errors'],
+          purpose: 'Detect function failures requiring investigation'
+        },
+        {
+          name: 'Lambda Performance',
+          metrics: ['Query duration', 'Ingestion duration'],
+          purpose: 'Identify performance bottlenecks and optimization opportunities'
+        },
+        {
+          name: 'Dead Letter Queue',
+          metrics: ['Failed ingestion messages'],
+          purpose: 'Track documents that failed processing'
+        },
+        {
+          name: 'Lambda Invocations',
+          metrics: ['Query invocations', 'Ingestion invocations'],
+          purpose: 'Monitor usage patterns and scaling behavior'
+        }
+      ],
+      defaultView: '3 hours with auto-adapting time range',
+      whyExists: 'Single pane of glass for all system metrics. Instead of checking 5 different CloudWatch pages, see everything in one dashboard. Critical for debugging and capacity planning.'
+    },
+    {
+      id: 'route53',
+      icon: '🌐',
+      name: 'Route 53 Health Checks',
+      category: 'DR',
+      color: '#8C4FFF',
+      shortDesc: 'Automatic failover monitoring and traffic routing',
+      responsibility: 'Monitor both regions and automatically route traffic to healthy endpoints',
+      drStrategy: 'Active-Passive with automatic failover',
+      healthChecks: [
+        {
+          region: 'Primary (us-west-2)',
+          endpoint: '/health',
+          interval: 'Every 30 seconds',
+          failureThreshold: '3 consecutive failures (90 seconds)',
+          action: 'Route traffic to failover region'
+        },
+        {
+          region: 'Failover (us-east-1)',
+          endpoint: '/health',
+          interval: 'Every 30 seconds',
+          status: 'Standby - receives traffic only if primary fails'
+        }
+      ],
+      whatItChecks: 'The /health endpoint actually calls Bedrock Knowledge Base API to verify backend is operational (not just returning 200 OK)',
+      failoverFlow: [
+        '1. Route 53 checks primary /health every 30 seconds',
+        '2. If 3 consecutive failures detected (90 seconds total)',
+        '3. Route 53 updates DNS to point to failover region',
+        '4. All new requests go to us-east-1',
+        '5. When primary recovers, traffic automatically returns'
+      ],
+      rto: '2-3 minutes (detection + DNS propagation)',
+      rpo: '0-15 minutes (S3 replication lag)',
+      costPerMonth: '$1 (2 health checks at $0.50 each)'
+    },
+    {
+      id: 'multi-region',
+      icon: '🌍',
+      name: 'Multi-Region Architecture',
+      category: 'DR',
+      color: '#146EB4',
+      shortDesc: 'Full stack deployed in two regions for disaster recovery',
+      responsibility: 'Ensure application availability even if an entire AWS region fails',
+      deployedRegions: [
+        {
+          name: 'Primary: us-west-2 (Oregon)',
+          purpose: 'Handles all traffic under normal conditions',
+          components: 'Full stack: API Gateway, 5 Lambdas, Bedrock KB, S3, CloudFront'
+        },
+        {
+          name: 'Failover: us-east-1 (N. Virginia)',
+          purpose: 'Standby region that activates if primary fails',
+          components: 'Identical stack: API Gateway, 5 Lambdas, Bedrock KB, S3, CloudFront'
+        }
+      ],
+      dataSync: 'S3 Cross-Region Replication ensures documents uploaded to primary are automatically copied to failover (15-minute SLA)',
+      realDeployment: 'Both regions are FULLY deployed with real resources, not placeholders. Each region can independently serve all requests.',
+      automatedSetup: 'Single command deployment: ./deploy-chatbot-with-dr.sh',
+      businessValue: 'If Oregon data center fails, application automatically switches to Virginia in under 3 minutes with zero manual intervention.'
     }
   ];
 
@@ -298,7 +411,13 @@ const Documentation = () => {
     
     const bedrock = (numQueries / 500) * bedrockBase;
     const lambda = (numQueries / 500) * lambdaBase;
-    const total = s3Storage + cloudfront + bedrock + opensearch + lambda;
+    const singleRegionTotal = s3Storage + cloudfront + bedrock + opensearch + lambda;
+    
+    // DR costs (optional - for multi-region deployment)
+    const drSecondRegion = singleRegionTotal; // Full stack in second region
+    const route53HealthChecks = Number('1.00'); // 2 health checks
+    const s3Replication = Number('0.20'); // Cross-region data transfer
+    const drTotal = drSecondRegion + route53HealthChecks + s3Replication;
     
     return {
       s3: s3Storage.toFixed(2),
@@ -306,7 +425,9 @@ const Documentation = () => {
       bedrock: bedrock.toFixed(2),
       opensearch: opensearch.toFixed(2),
       lambda: lambda.toFixed(2),
-      total: total.toFixed(2)
+      singleRegion: singleRegionTotal.toFixed(2),
+      drCost: drTotal.toFixed(2),
+      totalWithDR: (singleRegionTotal + drTotal).toFixed(2)
     };
   };
 
@@ -430,18 +551,30 @@ const Documentation = () => {
                   <span>Lambda Functions:</span>
                   <span className="cost-value">${costs.lambda}</span>
                 </div>
+                <div className="cost-item cost-subtotal">
+                  <span><strong>Single Region:</strong></span>
+                  <span className="cost-value"><strong>${costs.singleRegion}/month</strong></span>
+                </div>
+                <div className="cost-item cost-dr">
+                  <span><strong>+ Disaster Recovery (optional):</strong></span>
+                  <span className="cost-value"><strong>+${costs.drCost}/month</strong></span>
+                </div>
                 <div className="cost-item cost-total">
-                  <span><strong>Total:</strong></span>
-                  <span className="cost-value"><strong>${costs.total}/month</strong></span>
+                  <span><strong>Total with DR:</strong></span>
+                  <span className="cost-value"><strong>${costs.totalWithDR}/month</strong></span>
                 </div>
               </div>
               <div className="cost-comparison">
                 <p><strong>For Comparison:</strong></p>
                 <ul>
                   <li>One employee answering questions manually: ~$4,000/month</li>
-                  <li>Running your own server: ~$200/month minimum</li>
-                  <li>This serverless solution: <strong>${costs.total}/month</strong></li>
+                  <li>Running your own server with DR: ~$500/month minimum</li>
+                  <li>This serverless solution (single region): <strong>${costs.singleRegion}/month</strong></li>
+                  <li>This serverless solution (with DR): <strong>${costs.totalWithDR}/month</strong></li>
                 </ul>
+                <p style={{marginTop: '15px', color: '#01A88D', fontWeight: 600}}>
+                  💡 DR adds ~${costs.drCost}/month but provides &lt;3 minute recovery time if an entire region fails.
+                </p>
               </div>
             </div>
           </div>
