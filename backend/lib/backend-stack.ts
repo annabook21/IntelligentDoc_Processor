@@ -259,10 +259,10 @@ export class BackendStack extends Stack {
       },
     });
 
-    // Grant permission for RetrieveAndGenerate API (atomic RAG with guardrails)
+    // Grant permission for Retrieve API (two-step RAG process)
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["bedrock:RetrieveAndGenerate"],
+        actions: ["bedrock:Retrieve"],
         resources: [knowledgeBase.knowledgeBaseArn],
       })
     );
