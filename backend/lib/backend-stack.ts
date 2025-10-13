@@ -220,6 +220,25 @@ export class BackendStack extends Stack {
       restApiName: "rag-api",
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowMethods: apigw.Cors.ALL_METHODS,
+      },
+    });
+
+    // Add CORS headers to error responses (4xx, 5xx)
+    apiGateway.addGatewayResponse('Default4xx', {
+      type: apigw.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+      },
+    });
+
+    apiGateway.addGatewayResponse('Default5xx', {
+      type: apigw.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
       },
     });
 

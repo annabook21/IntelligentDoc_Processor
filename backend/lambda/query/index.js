@@ -6,9 +6,9 @@ const {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } = require("@aws-sdk/client-bedrock-runtime");
-const middy = require('@middy/core');
-const httpJsonBodyParser = require('@middy/http-json-body-parser');
-const httpHeaderNormalizer = require('@middy/http-header-normalizer');
+const middy = require('@middy/core').default || require('@middy/core');
+const httpJsonBodyParser = require('@middy/http-json-body-parser').default || require('@middy/http-json-body-parser');
+const httpHeaderNormalizer = require('@middy/http-header-normalizer').default || require('@middy/http-header-normalizer');
 
 const agentClient = new BedrockAgentRuntimeClient({ region: process.env.AWS_REGION });
 const runtimeClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
