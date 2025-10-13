@@ -104,7 +104,7 @@ export class BackendStack extends Stack {
 
     const knowledgeBase = new bedrock.VectorKnowledgeBase(
       this,
-      "knowledgeBase",
+      `knowledgeBase-${this.region}`,
       {
         embeddingsModel: bedrock.BedrockFoundationModel.TITAN_EMBED_TEXT_V1,
       }
