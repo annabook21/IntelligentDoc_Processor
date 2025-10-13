@@ -80,13 +80,9 @@ Answer based ONLY on the context above:`;
       
       const responseBody = JSON.parse(new TextDecoder().decode(invokeResponse.body));
 
-      // DEBUG: Log guardrail response
-      console.log('Guardrail action:', invokeResponse.amazonBedrockGuardrailAction);
-      console.log('Response body:', JSON.stringify(responseBody, null, 2));
-
-      // 4. Handle Guardrail interventions on the output
-      if (invokeResponse.amazonBedrockGuardrailAction === 'INTERVENED') {
-          console.warn('🛡️ Guardrail blocked model output.');
+      // 4. Handle Guardrail interventions (check response body, not response metadata)
+      if (responseBody['amazon-bedrock-guardrailAction'] === 'INTERVENED') {
+          console.warn('🛡️ Guardrail blocked content.');
           const blockedMessage = responseBody.content[0].text;
           // Return with NULL citation when guardrail blocks
           return makeResults(200, blockedMessage, null, null);
