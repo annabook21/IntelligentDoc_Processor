@@ -320,6 +320,29 @@ export class BackendStack extends Stack {
       .addResource("ingestion-status")
       .addMethod("GET", new apigw.LambdaIntegration(lambdaIngestionStatus));
 
+    /** Lambda for health checks (DR requirement) */
+    const lambdaHealth = new NodejsFunction(this, "Health", {
+      runtime: Runtime.NODEJS_20_X,
+      entry: join(__dirname, "../lambda/health/index.js"),
+      functionName: `api-health-check`,
+      timeout: Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      environment: {
+        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
+      },
+    });
+
+    lambdaHealth.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:GetKnowledgeBase"],
+        resources: [knowledgeBase.knowledgeBaseArn],
+      })
+    );
+
+    apiGateway.root
+      .addResource("health")
+      .addMethod("GET", new apigw.LambdaIntegration(lambdaHealth));
+
     // Usage plan with throttling for basic API protection
     apiGateway.addUsagePlan("usage-plan", {
       name: "dev-docs-plan",
@@ -473,6 +496,12 @@ export class BackendStack extends Stack {
     //CfnOutput is used to log API Gateway URL and S3 bucket name to console
     new CfnOutput(this, "APIGatewayUrl", {
       value: apiGateway.url,
+      description: "Base API URL for the chatbot backend",
+    });
+
+    new CfnOutput(this, "HealthEndpoint", {
+      value: `${apiGateway.url}health`,
+      description: "Health check endpoint for Route 53 monitoring and DR failover",
     });
 
     new CfnOutput(this, "DocsBucketName", {
