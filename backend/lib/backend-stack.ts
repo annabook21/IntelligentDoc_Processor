@@ -42,7 +42,7 @@ export class BackendStack extends Stack {
       {
         runtime: Runtime.NODEJS_20_X,
         entry: join(__dirname, "../lambda/model-check/index.js"),
-        functionName: `bedrock-model-access-check`,
+        functionName: `bedrock-model-access-check-${this.region}`,
         timeout: Duration.minutes(1),
       }
     );
@@ -172,12 +172,12 @@ export class BackendStack extends Stack {
     /** SNS Topic for Alerts */
     const alertTopic = new sns.Topic(this, "AlertTopic", {
       displayName: "Chatbot Processing Alerts",
-      topicName: "chatbot-alerts",
+      topicName: `chatbot-alerts-${this.region}`,
     });
 
     /** Dead Letter Queue for Failed Ingestions */
     const ingestionDLQ = new sqs.Queue(this, "IngestionDLQ", {
-      queueName: "ingestion-failures-dlq",
+      queueName: `ingestion-failures-dlq-${this.region}`,
       retentionPeriod: Duration.days(14),
       visibilityTimeout: Duration.minutes(5),
     });
@@ -187,7 +187,7 @@ export class BackendStack extends Stack {
     const lambdaIngestionJob = new NodejsFunction(this, "IngestionJob", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/ingest/index.js"),
-      functionName: `start-ingestion-trigger`,
+      functionName: `start-ingestion-trigger-${this.region}`,
       timeout: Duration.minutes(15),
       deadLetterQueue: ingestionDLQ,
       retryAttempts: 2,
@@ -247,7 +247,7 @@ export class BackendStack extends Stack {
     const lambdaQuery = new NodejsFunction(this, "Query", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/query/index.js"),
-      functionName: `query-bedrock-llm`,
+      functionName: `query-bedrock-llm-${this.region}`,
       //query lambda duration set to match API Gateway max timeout
       timeout: Duration.seconds(29),
       tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
@@ -296,7 +296,7 @@ export class BackendStack extends Stack {
     const lambdaUpload = new NodejsFunction(this, "Upload", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/upload/index.js"),
-      functionName: `generate-upload-url`,
+      functionName: `generate-upload-url-${this.region}`,
       timeout: Duration.seconds(10),
       tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
       environment: {
@@ -318,7 +318,7 @@ export class BackendStack extends Stack {
       {
         runtime: Runtime.NODEJS_20_X,
         entry: join(__dirname, "../lambda/ingestion-status/index.js"),
-        functionName: `get-ingestion-status`,
+        functionName: `get-ingestion-status-${this.region}`,
         timeout: Duration.seconds(20),
         tracing: lambda.Tracing.ACTIVE,
         environment: {
@@ -343,7 +343,7 @@ export class BackendStack extends Stack {
     const lambdaHealth = new NodejsFunction(this, "Health", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/health/index.js"),
-      functionName: `api-health-check`,
+      functionName: `api-health-check-${this.region}`,
       timeout: Duration.seconds(10),
       tracing: lambda.Tracing.ACTIVE,
       environment: {
@@ -388,7 +388,7 @@ export class BackendStack extends Stack {
       threshold: 5,
       evaluationPeriods: 1,
       alarmDescription: "Alert when Query Lambda has >5 errors in 5 minutes",
-      alarmName: "chatbot-query-errors",
+      alarmName: `chatbot-query-errors-${this.region}`,
     });
     queryErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
 
@@ -404,7 +404,7 @@ export class BackendStack extends Stack {
         evaluationPeriods: 1,
         alarmDescription:
           "Alert when Ingestion Lambda has >3 errors in 5 minutes",
-        alarmName: "chatbot-ingestion-errors",
+        alarmName: `chatbot-ingestion-errors-${this.region}`,
       }
     );
     ingestionErrorAlarm.addAlarmAction(
@@ -419,14 +419,14 @@ export class BackendStack extends Stack {
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: "Alert when messages appear in DLQ",
-      alarmName: "chatbot-dlq-messages",
+      alarmName: `chatbot-dlq-messages-${this.region}`,
     });
     dlqAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
 
     /** CloudWatch Dashboard */
     
     const dashboard = new cloudwatch.Dashboard(this, "ChatbotDashboard", {
-      dashboardName: "contextual-chatbot-metrics",
+      dashboardName: `contextual-chatbot-metrics-${this.region}`,
       defaultInterval: Duration.hours(3), // Show last 3 hours by default
       periodOverride: cloudwatch.PeriodOverride.AUTO, // Auto-adapt to time range
     });
