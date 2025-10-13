@@ -39,7 +39,20 @@ exports.handler =
 
       // 2. Prepare the prompt for the language model
       const formattedContext = retrievedChunks.join("\n\n");
-      const prompt = `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`;
+      const prompt = `You are a helpful assistant that answers questions based ONLY on the provided context. Do not use any outside knowledge.
+
+CRITICAL RULES:
+- Use ONLY the information in the context below
+- If the context doesn't contain the answer, say "I don't have that information in the provided documents"
+- Do NOT make up information or use general knowledge
+- Quote directly from the context when possible
+
+Context:
+${formattedContext}
+
+Question: ${question}
+
+Answer based ONLY on the context above:`;
       
       const bedrockModelId = "anthropic.claude-3-sonnet-20240229-v1:0"; // Hardcoded to Claude 3 Sonnet
       
