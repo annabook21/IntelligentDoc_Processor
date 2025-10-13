@@ -21,11 +21,11 @@ The application uses **S3 Versioning** for data protection and recovery. This is
 ### 1. Deploy the Stack
 ```bash
 cd backend
-cdk deploy
+cdk deploy --all
 ```
 
-Note the output:
-- `DocsBucketName`: Your versioned documents bucket
+Note the outputs from BackendStack-Primary and BackendStack-Failover:
+- `DocsBucketName`: Your versioned documents buckets (one per region)
 
 ### 2. Upload a Test File
 ```bash

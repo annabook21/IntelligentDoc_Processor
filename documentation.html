@@ -539,7 +539,7 @@ graph TB
                 <li><strong>Enable Bedrock Models:</strong> Follow the critical step above to enable required models in the Bedrock console</li>
                 <li><strong>Install Dependencies:</strong> Run <code>npm install</code> in the backend directory</li>
                 <li><strong>Bootstrap CDK:</strong> First-time users run <code>cdk bootstrap</code> to prepare your AWS environment</li>
-                <li><strong>Deploy Infrastructure:</strong> Execute <code>cdk deploy</code> and wait 10-15 minutes for complete provisioning</li>
+                <li><strong>Deploy Infrastructure:</strong> Execute <code>cdk deploy --all</code> to deploy to both us-west-2 (primary) and us-east-1 (failover). Wait 15-20 minutes for complete provisioning of both regions.</li>
             </ol>
 
             <div class="success-box">
@@ -660,7 +660,7 @@ graph TB
 
             <div class="warning-box">
                 <strong style="color: #FF9900;">DELETE_FAILED on BucketNotificationsHandler</strong>
-                <p style="margin-top: 10px;">Your CloudFormation stack is corrupted from a previous failed deployment. Run <code>cdk destroy</code> to clean up, then <code>cdk deploy</code> again.</p>
+                <p style="margin-top: 10px;">Your CloudFormation stack is corrupted from a previous failed deployment. Run <code>cdk destroy --all</code> to clean up, then <code>cdk deploy --all</code> again.</p>
             </div>
 
             <div class="warning-box">
