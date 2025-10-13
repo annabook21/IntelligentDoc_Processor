@@ -12,16 +12,16 @@ const AnimatedSequence = ({ flowType }) => {
       icon: '👤',
       title: 'User Asks Question',
       description: 'User types: "What is our refund policy?"',
-      details: 'The question is sent via HTTPS POST to API Gateway endpoint /docs',
+      details: 'Route 53 routes request to healthy region (us-west-2 primary, or us-east-1 if primary down)',
       technical: 'POST https://api.example.com/docs { "question": "What is our refund policy?" }',
       time: '0ms'
     },
     {
       id: 2,
       icon: '🔌',
-      title: 'API Gateway Validates',
+      title: 'API Gateway Validates (Primary: us-west-2)',
       description: 'Checks request format, applies throttling, logs to CloudWatch',
-      details: 'Validates JSON schema, checks API key (if configured), applies rate limiting',
+      details: 'Validates JSON schema, checks API key (if configured), applies rate limiting. Identical API Gateway exists in us-east-1 for failover.',
       technical: 'Rate limit: 100 requests/second per IP, 200 burst capacity',
       time: '5ms'
     },
@@ -93,8 +93,8 @@ const AnimatedSequence = ({ flowType }) => {
       icon: '✅',
       title: 'Return to User',
       description: 'Answer + citations displayed in chat',
-      details: 'Lambda formats response with markdown, includes source document names',
-      technical: 'Total round-trip: ~2.3 seconds',
+      details: 'Lambda formats response with markdown, includes source document names. Meanwhile, Route 53 continuously monitors /health endpoint every 30 seconds for automatic failover.',
+      technical: 'Total round-trip: ~2.3 seconds (primary). If primary fails, Route 53 auto-routes to us-east-1 in <3 minutes.',
       time: '10ms'
     }
   ];
@@ -184,10 +184,10 @@ const AnimatedSequence = ({ flowType }) => {
     {
       id: 10,
       icon: '✅',
-      title: 'Ingestion Complete',
-      description: 'Document ready for querying!',
-      details: 'Status changes from IN_PROGRESS → COMPLETE, frontend polls and shows success',
-      technical: 'Total ingestion time: ~65 seconds for 10-page PDF',
+      title: 'Ingestion Complete + Replication',
+      description: 'Document ready for querying in primary region!',
+      details: 'Status changes from IN_PROGRESS → COMPLETE, frontend polls and shows success. S3 Cross-Region Replication automatically copies to us-east-1 failover region within 15 minutes.',
+      technical: 'Total ingestion time: ~65 seconds for 10-page PDF. Failover region gets replicated copy for DR.',
       time: '0ms'
     }
   ];
@@ -353,6 +353,7 @@ const AnimatedSequence = ({ flowType }) => {
             <li>Vector search takes only <strong>200ms</strong> to search through thousands of documents</li>
             <li>Guardrails add <strong>100ms total</strong> but prevent harmful content</li>
             <li>Warm Lambda invocations respond in <strong>&lt;100ms</strong></li>
+            <li><strong>DR:</strong> If us-west-2 fails, Route 53 automatically routes to us-east-1 in <strong>&lt;3 minutes</strong></li>
           </ul>
         ) : (
           <ul>
@@ -360,6 +361,7 @@ const AnimatedSequence = ({ flowType }) => {
             <li>Direct S3 upload bypasses Lambda, saving <strong>time & cost</strong></li>
             <li>Event-driven architecture means <strong>no polling</strong> needed</li>
             <li>Pre-signed URLs expire after <strong>5 minutes</strong> for security</li>
+            <li><strong>DR:</strong> Documents auto-replicate to us-east-1 within <strong>15 minutes</strong> (RPO)</li>
           </ul>
         )}
       </div>

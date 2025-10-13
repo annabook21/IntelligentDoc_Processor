@@ -6,60 +6,83 @@ const FlowDiagram = () => {
   const [hoveredNode, setHoveredNode] = useState(null);
 
   const nodes = [
+    // Global / DR Layer
     { id: 'user', label: '👤 User', x: 50, y: 50, category: 'external', color: '#8C4FFF' },
-    { id: 'cloudfront', label: '☁️ CloudFront', x: 200, y: 50, category: 'cdn', color: '#8C4FFF' },
-    { id: 's3-frontend', label: '💾 S3 Frontend', x: 350, y: 50, category: 'storage', color: '#569A31' },
+    { id: 'route53', label: '🌐 Route 53', x: 200, y: 50, category: 'dr', color: '#8C4FFF' },
     
-    { id: 'apigateway', label: '🔌 API Gateway', x: 200, y: 200, category: 'api', color: '#FF4F8B' },
-    { id: 'lambda-query', label: '⚡ Query Lambda', x: 350, y: 200, category: 'compute', color: '#FF9900' },
+    // Primary Region (us-west-2)
+    { id: 'cloudfront-primary', label: '☁️ CF Primary', x: 350, y: 120, category: 'cdn', color: '#569A31' },
+    { id: 's3-frontend-primary', label: '💾 S3 FE (W2)', x: 500, y: 120, category: 'storage', color: '#569A31' },
+    { id: 'apigateway-primary', label: '🔌 API GW (W2)', x: 350, y: 220, category: 'api', color: '#FF4F8B' },
+    { id: 'lambda-query-primary', label: '⚡ Query (W2)', x: 500, y: 220, category: 'compute', color: '#FF9900' },
+    { id: 'lambda-health-primary', label: '💚 Health (W2)', x: 350, y: 320, category: 'compute', color: '#FF9900' },
+    { id: 'bedrock-kb-primary', label: '🧠 KB (W2)', x: 650, y: 220, category: 'ai', color: '#01A88D' },
+    { id: 's3-docs-primary', label: '💾 Docs (W2)', x: 500, y: 380, category: 'storage', color: '#569A31' },
     
-    { id: 'bedrock-kb', label: '🧠 Bedrock KB', x: 500, y: 200, category: 'ai', color: '#01A88D' },
-    { id: 'opensearch', label: '🔍 OpenSearch', x: 650, y: 200, category: 'database', color: '#146EB4' },
-    
-    { id: 'claude', label: '🤖 Claude', x: 500, y: 300, category: 'ai', color: '#01A88D' },
-    { id: 'guardrails', label: '🛡️ Guardrails', x: 350, y: 300, category: 'security', color: '#146EB4' },
-    
-    { id: 's3-docs', label: '💾 S3 Documents', x: 200, y: 400, category: 'storage', color: '#569A31' },
-    { id: 'lambda-upload', label: '⚡ Upload Lambda', x: 350, y: 400, category: 'compute', color: '#FF9900' },
-    { id: 'lambda-ingest', label: '⚡ Ingest Lambda', x: 500, y: 400, category: 'compute', color: '#FF9900' },
+    // Failover Region (us-east-1)
+    { id: 'cloudfront-failover', label: '☁️ CF Failover', x: 350, y: 480, category: 'cdn', color: '#569A31' },
+    { id: 's3-frontend-failover', label: '💾 S3 FE (E1)', x: 500, y: 480, category: 'storage', color: '#569A31' },
+    { id: 'apigateway-failover', label: '🔌 API GW (E1)', x: 350, y: 580, category: 'api', color: '#FF4F8B' },
+    { id: 'lambda-query-failover', label: '⚡ Query (E1)', x: 500, y: 580, category: 'compute', color: '#FF9900' },
+    { id: 'lambda-health-failover', label: '💚 Health (E1)', x: 350, y: 680, category: 'compute', color: '#FF9900' },
+    { id: 'bedrock-kb-failover', label: '🧠 KB (E1)', x: 650, y: 580, category: 'ai', color: '#01A88D' },
+    { id: 's3-docs-failover', label: '💾 Docs (E1)', x: 500, y: 740, category: 'storage', color: '#569A31' },
   ];
 
   const connections = [
-    // Frontend Flow
-    { from: 'user', to: 'cloudfront', type: 'https', label: 'HTTPS' },
-    { from: 'cloudfront', to: 's3-frontend', type: 'fetch', label: 'Fetch Assets' },
+    // Global Traffic Management
+    { from: 'user', to: 'route53', type: 'dns', label: 'DNS Lookup' },
+    { from: 'route53', to: 'cloudfront-primary', type: 'route', label: 'Route to Primary' },
+    { from: 'route53', to: 'cloudfront-failover', type: 'failover', label: 'Failover Route' },
     
-    // Query Flow
-    { from: 'user', to: 'apigateway', type: 'api', label: 'POST /docs' },
-    { from: 'apigateway', to: 'lambda-query', type: 'invoke', label: 'Invoke' },
-    { from: 'lambda-query', to: 'guardrails', type: 'check', label: 'Input Check' },
-    { from: 'lambda-query', to: 'bedrock-kb', type: 'retrieve', label: 'Retrieve Context' },
-    { from: 'bedrock-kb', to: 'opensearch', type: 'search', label: 'Vector Search' },
-    { from: 'lambda-query', to: 'claude', type: 'generate', label: 'Generate Answer' },
-    { from: 'guardrails', to: 'claude', type: 'check', label: 'Output Check' },
+    // Route 53 Health Checks
+    { from: 'route53', to: 'lambda-health-primary', type: 'health', label: 'Health Check /health' },
+    { from: 'route53', to: 'lambda-health-failover', type: 'health', label: 'Health Check /health' },
     
-    // Upload Flow
-    { from: 'user', to: 'lambda-upload', type: 'api', label: 'Request URL' },
-    { from: 'user', to: 's3-docs', type: 'upload', label: 'Upload File' },
-    { from: 's3-docs', to: 'lambda-ingest', type: 'trigger', label: 'S3 Event' },
-    { from: 'lambda-ingest', to: 'bedrock-kb', type: 'ingest', label: 'Start Ingestion' },
-    { from: 'bedrock-kb', to: 'opensearch', type: 'store', label: 'Store Vectors' },
+    // Primary Region - Frontend Flow
+    { from: 'cloudfront-primary', to: 's3-frontend-primary', type: 'fetch', label: 'Serve Assets' },
+    
+    // Primary Region - Query Flow  
+    { from: 'user', to: 'apigateway-primary', type: 'api', label: 'POST /docs' },
+    { from: 'apigateway-primary', to: 'lambda-query-primary', type: 'invoke', label: 'Invoke' },
+    { from: 'lambda-query-primary', to: 'bedrock-kb-primary', type: 'retrieve', label: 'Retrieve + Generate' },
+    { from: 'apigateway-primary', to: 'lambda-health-primary', type: 'invoke', label: 'GET /health' },
+    
+    // Primary Region - Data Storage & Replication
+    { from: 's3-docs-primary', to: 's3-docs-failover', type: 'replicate', label: 'Cross-Region Replication' },
+    
+    // Failover Region - Frontend Flow
+    { from: 'cloudfront-failover', to: 's3-frontend-failover', type: 'fetch', label: 'Serve Assets' },
+    
+    // Failover Region - Query Flow (Standby)
+    { from: 'user', to: 'apigateway-failover', type: 'failover-api', label: 'POST /docs (if primary down)' },
+    { from: 'apigateway-failover', to: 'lambda-query-failover', type: 'invoke', label: 'Invoke' },
+    { from: 'lambda-query-failover', to: 'bedrock-kb-failover', type: 'retrieve', label: 'Retrieve + Generate' },
+    { from: 'apigateway-failover', to: 'lambda-health-failover', type: 'invoke', label: 'GET /health' },
   ];
 
   const getNodeDescription = (nodeId) => {
     const descriptions = {
-      'user': 'End users accessing the chatbot through their web browser',
-      'cloudfront': 'CDN delivering static website files with global caching',
-      's3-frontend': 'Storage bucket containing React app files (HTML, JS, CSS)',
-      'apigateway': 'RESTful API with 3 endpoints: /docs, /upload, /ingestion-status',
-      'lambda-query': 'Orchestrates RAG flow: retrieve context → apply guardrails → call Claude',
-      'bedrock-kb': 'Manages document ingestion, chunking, embedding, and semantic retrieval',
-      'opensearch': 'Vector database storing 1536-dim embeddings for fast similarity search',
-      'claude': 'Claude 3 Sonnet generates natural language answers from context',
-      'guardrails': 'Filters harmful content in both questions and answers',
-      's3-docs': 'Storage for uploaded documents (PDF, DOCX, TXT)',
-      'lambda-upload': 'Generates pre-signed URLs for secure direct uploads',
-      'lambda-ingest': 'Triggered by S3 events, starts Bedrock ingestion job'
+      'user': 'End users accessing the chatbot through their web browser from anywhere in the world',
+      'route53': 'DNS service that routes traffic to healthy region. Monitors /health endpoints every 30 seconds and automatically fails over if primary is down for 90 seconds.',
+      
+      // Primary Region
+      'cloudfront-primary': 'Primary CDN in us-west-2 delivering static website files with global caching',
+      's3-frontend-primary': 'Primary S3 bucket containing React app files (HTML, JS, CSS) in us-west-2',
+      'apigateway-primary': 'Primary REST API in us-west-2 with endpoints: /docs, /upload, /ingestion-status, /health',
+      'lambda-query-primary': 'Primary Query Lambda (us-west-2): Retrieve from KB → Apply guardrails → Generate answer with Claude',
+      'lambda-health-primary': 'Primary Health Lambda (us-west-2): Tests Bedrock KB connectivity, returns 200 if healthy or 503 if degraded',
+      'bedrock-kb-primary': 'Primary Knowledge Base (us-west-2): Manages ingestion, chunking, embeddings, and semantic retrieval',
+      's3-docs-primary': 'Primary Documents bucket (us-west-2): Stores uploads, triggers ingestion, replicates to us-east-1',
+      
+      // Failover Region
+      'cloudfront-failover': 'Failover CDN in us-east-1. Activated by Route 53 when primary region fails.',
+      's3-frontend-failover': 'Failover S3 bucket containing React app files in us-east-1 (standby)',
+      'apigateway-failover': 'Failover REST API in us-east-1. Receives traffic only if primary region is unhealthy.',
+      'lambda-query-failover': 'Failover Query Lambda (us-east-1): Identical to primary, serves requests during outages',
+      'lambda-health-failover': 'Failover Health Lambda (us-east-1): Route 53 monitors this to confirm failover region is ready',
+      'bedrock-kb-failover': 'Failover Knowledge Base (us-east-1): Contains replicated documents from primary region',
+      's3-docs-failover': 'Failover Documents bucket (us-east-1): Receives replicated documents from us-west-2 (15-min lag)',
     };
     return descriptions[nodeId] || '';
   };
@@ -76,7 +99,7 @@ const FlowDiagram = () => {
 
   return (
     <div className="flow-diagram-container">
-      <svg className="flow-diagram" viewBox="0 0 850 550" preserveAspectRatio="xMidYMid meet">
+      <svg className="flow-diagram" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid meet">
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
             <polygon points="0 0, 10 3, 0 6" fill="#FF9900" />
@@ -210,31 +233,30 @@ const FlowDiagram = () => {
 
       {/* Legend */}
       <div className="diagram-legend">
-        <h4>💡 Tip: Click nodes to see details • Hover to highlight connections</h4>
+        <h4>💡 Multi-Region DR Architecture: Primary (us-west-2) + Failover (us-east-1)</h4>
+        <p style={{fontSize: '12px', marginTop: '5px', marginBottom: '10px'}}>
+          Route 53 monitors health endpoints. If primary fails for 90+ seconds, all traffic routes to failover.
+        </p>
         <div className="legend-items">
           <div className="legend-item">
             <div className="legend-color" style={{ background: '#569A31' }}></div>
-            <span>Storage</span>
+            <span>Storage/CDN</span>
           </div>
           <div className="legend-item">
             <div className="legend-color" style={{ background: '#8C4FFF' }}></div>
-            <span>CDN</span>
+            <span>Global/DR</span>
           </div>
           <div className="legend-item">
             <div className="legend-color" style={{ background: '#FF4F8B' }}></div>
-            <span>API</span>
+            <span>API Gateway</span>
           </div>
           <div className="legend-item">
             <div className="legend-color" style={{ background: '#FF9900' }}></div>
-            <span>Compute</span>
+            <span>Lambda</span>
           </div>
           <div className="legend-item">
             <div className="legend-color" style={{ background: '#01A88D' }}></div>
-            <span>AI</span>
-          </div>
-          <div className="legend-item">
-            <div className="legend-color" style={{ background: '#146EB4' }}></div>
-            <span>Security/DB</span>
+            <span>AI/Bedrock</span>
           </div>
         </div>
       </div>
