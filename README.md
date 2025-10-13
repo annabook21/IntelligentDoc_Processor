@@ -267,15 +267,17 @@ The chatbot will now answer based on the context provided in your documents.
 * **Error: `StagingBucket already exists` during bootstrap**
   → Delete the old S3 bucket `cdk-hnb659fds-assets-<account>-<region>` or rerun bootstrap with `--bootstrap-bucket-name`.
 
-* **Deploying to different region**
-  → Set region before deploying:
+* **Multi-region deployment**
+  → CDK automatically deploys to BOTH us-west-2 (primary) and us-east-1 (failover):
 
   ```bash
-  export AWS_DEFAULT_REGION=us-east-1  # or us-west-2
-  cdk deploy
+  cd backend
+  cdk deploy --all --require-approval never
   ```
   
-  ⚠️ **Important**: Enable Bedrock model access in the Bedrock console for your target region first.
+  This creates `BackendStack-Primary` (us-west-2) and `BackendStack-Failover` (us-east-1).
+  
+  ⚠️ **Important**: Enable Bedrock model access in BOTH regions before deploying.
 
 ### Runtime Issues
 

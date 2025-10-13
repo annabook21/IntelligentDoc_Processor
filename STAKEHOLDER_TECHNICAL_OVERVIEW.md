@@ -541,8 +541,14 @@ Permissions:
 ```bash
 cd backend
 npm install
-cdk bootstrap  # First time only
-cdk deploy     # 10-15 minutes
+
+# Bootstrap both regions (first time only)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+cdk bootstrap aws://$ACCOUNT/us-west-2
+cdk bootstrap aws://$ACCOUNT/us-east-1
+
+# Deploy to BOTH regions simultaneously
+cdk deploy --all --require-approval never  # 15-20 minutes
 ```
 
 **Post-Deployment:**

@@ -49,9 +49,9 @@ Primary (us-west-2)          Failover (us-east-1)
 If not already deployed:
 
 ```bash
-export AWS_DEFAULT_REGION=us-west-2
 cd backend
-cdk deploy
+# Deploy to BOTH regions (us-west-2 + us-east-1) simultaneously
+cdk deploy --all --require-approval never
 ```
 
 **Record the outputs:**

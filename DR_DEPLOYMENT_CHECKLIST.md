@@ -61,14 +61,11 @@ cdk bootstrap aws://$ACCOUNT_ID/us-east-1
 ### Step 3: Deploy Full Stack to us-east-1
 
 ```bash
-# Set region to us-east-1
-export AWS_DEFAULT_REGION=us-east-1
-
 # Navigate to backend directory
 cd /path/to/Chatbot_proto/backend
 
-# Deploy (will take 10-15 minutes)
-cdk deploy
+# Deploy to BOTH regions simultaneously (will take 15-20 minutes total)
+cdk deploy --all --require-approval never
 ```
 
 **During deployment, you'll see:**
