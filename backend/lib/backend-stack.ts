@@ -203,10 +203,15 @@ export class BackendStack extends Stack {
     docsBucket.grantRead(lambdaIngestionJob);
 
     // Add S3 event notification to trigger Lambda on file upload
+    const eventNotification = new s3n.LambdaDestination(lambdaIngestionJob);
     docsBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED_PUT,
-      new s3n.LambdaDestination(lambdaIngestionJob)
+      eventNotification
     );
+    
+    // Grant permissions for the notification handler to manage bucket notifications during cleanup
+    docsBucket.grantPut(lambdaIngestionJob);
+    docsBucket.grant(lambdaIngestionJob, 's3:PutBucketNotification', 's3:GetBucketNotification');
 
     lambdaIngestionJob.addToRolePolicy(
       new iam.PolicyStatement({
