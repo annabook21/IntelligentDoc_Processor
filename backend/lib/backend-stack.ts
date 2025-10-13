@@ -202,20 +202,7 @@ export class BackendStack extends Stack {
     // Grant Lambda read access to bucket
     docsBucket.grantRead(lambdaIngestionJob);
 
-    // CRITICAL: Grant BucketNotificationsHandler permissions BEFORE adding notifications
-    // This prevents AccessDenied errors during stack updates/deletes
-    const stack = Stack.of(this);
-    const bucketNotificationsHandler = stack.node.tryFindChild('BucketNotificationsHandler') as lambda.Function;
-    if (bucketNotificationsHandler) {
-      bucketNotificationsHandler.addToRolePolicy(new iam.PolicyStatement({
-        actions: [
-          's3:PutBucketNotificationConfiguration',
-          's3:GetBucketNotificationConfiguration'
-        ],
-        resources: [docsBucket.bucketArn],
-      }));
-    }
-
+    // Add S3 event notification to trigger Lambda on file upload
     docsBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED_PUT,
       new s3n.LambdaDestination(lambdaIngestionJob)
@@ -394,6 +381,95 @@ export class BackendStack extends Stack {
     });
     dlqAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
 
+    /** CloudWatch Dashboard */
+    
+    const dashboard = new cloudwatch.Dashboard(this, "ChatbotDashboard", {
+      dashboardName: "contextual-chatbot-metrics",
+      defaultInterval: Duration.hours(3), // Show last 3 hours by default
+      periodOverride: cloudwatch.PeriodOverride.AUTO, // Auto-adapt to time range
+    });
+
+    // Row 1: API Gateway Performance
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "API Gateway - Total Requests",
+        left: [apiGateway.metricCount()],
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: "API Gateway - Errors",
+        left: [
+          apiGateway.metricClientError().with({ 
+            label: "4xx Client Errors", 
+            color: "#FF9900" 
+          }),
+          apiGateway.metricServerError().with({ 
+            label: "5xx Server Errors", 
+            color: "#D13212" 
+          }),
+        ],
+        width: 12,
+      })
+    );
+
+    // Row 2: Lambda Errors
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Lambda Function Errors",
+        left: [
+          lambdaQuery.metricErrors().with({ 
+            label: "Query Lambda", 
+            color: "#D13212" 
+          }),
+          lambdaIngestionJob.metricErrors().with({ 
+            label: "Ingestion Lambda", 
+            color: "#FF9900" 
+          }),
+        ],
+        width: 24,
+      })
+    );
+
+    // Row 3: Lambda Performance
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Query Lambda Duration",
+        left: [lambdaQuery.metricDuration()],
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: "Ingestion Lambda Duration",
+        left: [lambdaIngestionJob.metricDuration()],
+        width: 12,
+      })
+    );
+
+    // Row 4: Dead Letter Queue Monitor
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Failed Ingestions (DLQ Messages)",
+        left: [
+          ingestionDLQ.metricApproximateNumberOfMessagesVisible().with({
+            label: "Messages in DLQ",
+            color: "#D13212",
+          }),
+        ],
+        width: 24,
+      })
+    );
+
+    // Row 5: Lambda Invocations
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Lambda Invocations",
+        left: [
+          lambdaQuery.metricInvocations().with({ label: "Query Lambda" }),
+          lambdaIngestionJob.metricInvocations().with({ label: "Ingestion Lambda" }),
+        ],
+        width: 24,
+      })
+    );
+
     //CfnOutput is used to log API Gateway URL and S3 bucket name to console
     new CfnOutput(this, "APIGatewayUrl", {
       value: apiGateway.url,
@@ -412,6 +488,11 @@ export class BackendStack extends Stack {
     new CfnOutput(this, "DLQUrl", {
       value: ingestionDLQ.queueUrl,
       description: "Dead Letter Queue for failed ingestions",
+    });
+
+    new CfnOutput(this, "DashboardName", {
+      value: dashboard.dashboardName,
+      description: "CloudWatch Dashboard for monitoring chatbot metrics",
     });
 
     new CfnOutput(this, "GuardrailId", {
