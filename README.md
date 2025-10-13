@@ -117,11 +117,13 @@ Make sure you have these installed/configured first:
   npm install -g aws-cdk
   ```
 * **Docker Desktop** installed and running (required for bundling Lambda assets).
-* **Set your region** to `us-west-2` (or your preferred one):
+* **Set your region** (default: `us-west-2`, also supports `us-east-1`, `us-east-2`):
 
   ```bash
-  export AWS_DEFAULT_REGION=us-west-2
+  export AWS_DEFAULT_REGION=us-west-2  # or us-east-1, us-east-2
   ```
+  
+  📘 **Multi-Region Deployment**: See [MULTI_REGION_DEPLOYMENT_GUIDE.md](MULTI_REGION_DEPLOYMENT_GUIDE.md) for detailed instructions on deploying to multiple regions.
 
 ### Steps
 
@@ -189,16 +191,17 @@ The chatbot will now answer based on the context provided in your documents.
 * **Error: `StagingBucket already exists` during bootstrap**
   → Delete the old S3 bucket `cdk-hnb659fds-assets-<account>-us-west-2` or rerun bootstrap with `--bootstrap-bucket-name`.
 
-* **Deploying to wrong region (`us-east-1` instead of `us-west-2`)**
-  → Set region in `bin/backend.ts`:
+* **Deploying to different region**
+  → Set region before deploying:
 
-  ```ts
-  new BackendStack(app, 'BackendStack', {
-    env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: 'us-west-2' }
-  });
+  ```bash
+  export AWS_DEFAULT_REGION=us-east-1  # or us-west-2, us-east-2
+  cdk deploy
   ```
-
-  Or set `export AWS_DEFAULT_REGION=us-west-2` before deploying.
+  
+  ⚠️ **Important**: Verify Bedrock model access is enabled in the target region first!
+  
+  See [MULTI_REGION_DEPLOYMENT_GUIDE.md](MULTI_REGION_DEPLOYMENT_GUIDE.md) for complete multi-region instructions.
 
 ### Runtime Issues
 
