@@ -397,7 +397,7 @@ const Documentation = () => {
       ],
       dataSync: 'S3 Cross-Region Replication ensures documents uploaded to primary are automatically copied to failover (15-minute SLA)',
       realDeployment: 'Both regions are FULLY deployed with real resources, not placeholders. Each region can independently serve all requests.',
-      automatedSetup: 'Single command deployment: ./deploy-chatbot-with-dr.sh',
+      automatedSetup: 'Single CDK command deploys to both regions: cd backend && cdk deploy --all',
       businessValue: 'If Oregon data center fails, application automatically switches to Virginia in under 3 minutes with zero manual intervention.'
     }
   ];

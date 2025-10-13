@@ -149,30 +149,33 @@ graph TD
 
 ## Deployment
 
-### Quick Start: Automated DR Deployment 🚀
+### Multi-Region Deployment with CDK 🚀
 
-**For production deployments with disaster recovery**, use the automated script:
+**CDK automatically deploys to both us-west-2 (primary) and us-east-1 (failover)** for disaster recovery:
 
 ```bash
-# Deploy to both us-west-2 (primary) and us-east-1 (failover)
-./deploy-chatbot-with-dr.sh
+cd backend
 
-# Or with custom domain for Route 53 failover
-./deploy-chatbot-with-dr.sh --domain api.yourdomain.com
+# Bootstrap both regions (one-time setup)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+cdk bootstrap aws://$ACCOUNT/us-west-2
+cdk bootstrap aws://$ACCOUNT/us-east-1
+
+# Deploy to BOTH regions with a single command
+cdk deploy --all --require-approval never
 ```
 
-This script automatically:
-- ✅ Checks Bedrock model availability in both regions
-- ✅ Bootstraps both regions
-- ✅ Deploys full stack to primary and failover
-- ✅ Creates Route 53 health checks
-- ✅ Configures automatic failover
+This deployment:
+- ✅ Creates `BackendStack-Primary` in us-west-2
+- ✅ Creates `BackendStack-Failover` in us-east-1
+- ✅ Includes Route 53 health checks for automatic failover
+- ✅ Both stacks are identical and production-ready
 
-**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for details.**
+**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for complete DR details.**
 
 ---
 
-### Manual Deployment
+### Single-Region Deployment (Development)
 
 ### Prerequisites
 
