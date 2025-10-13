@@ -162,7 +162,7 @@ cdk bootstrap aws://$ACCOUNT/us-west-2
 cdk bootstrap aws://$ACCOUNT/us-east-1
 
 # Deploy to BOTH regions with a single command
-cdk deploy --all --require-approval never
+cdk deploy --all
 ```
 
 This deployment:
@@ -272,7 +272,7 @@ The chatbot will now answer based on the context provided in your documents.
 
   ```bash
   cd backend
-  cdk deploy --all --require-approval never
+  cdk deploy --all
   ```
   
   This creates `BackendStack-Primary` (us-west-2) and `BackendStack-Failover` (us-east-1).

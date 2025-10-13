@@ -548,7 +548,7 @@ cdk bootstrap aws://$ACCOUNT/us-west-2
 cdk bootstrap aws://$ACCOUNT/us-east-1
 
 # Deploy to BOTH regions simultaneously
-cdk deploy --all --require-approval never  # 15-20 minutes
+cdk deploy --all  # 15-20 minutes
 ```
 
 **Post-Deployment:**

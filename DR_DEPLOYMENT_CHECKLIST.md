@@ -65,7 +65,7 @@ cdk bootstrap aws://$ACCOUNT_ID/us-east-1
 cd /path/to/Chatbot_proto/backend
 
 # Deploy to BOTH regions simultaneously (will take 15-20 minutes total)
-cdk deploy --all --require-approval never
+cdk deploy --all
 ```
 
 **During deployment, you'll see:**

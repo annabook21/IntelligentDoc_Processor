@@ -51,7 +51,7 @@ If not already deployed:
 ```bash
 cd backend
 # Deploy to BOTH regions (us-west-2 + us-east-1) simultaneously
-cdk deploy --all --require-approval never
+cdk deploy --all
 ```
 
 **Record the outputs:**
