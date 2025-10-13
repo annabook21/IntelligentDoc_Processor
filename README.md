@@ -117,13 +117,11 @@ Make sure you have these installed/configured first:
   npm install -g aws-cdk
   ```
 * **Docker Desktop** installed and running (required for bundling Lambda assets).
-* **Set your region** (default: `us-west-2`, also supports `us-east-1`, `us-east-2`):
+* **Set your region** (supports `us-west-2` or `us-east-1`):
 
   ```bash
-  export AWS_DEFAULT_REGION=us-west-2  # or us-east-1, us-east-2
+  export AWS_DEFAULT_REGION=us-west-2  # or us-east-1
   ```
-  
-  📘 **Multi-Region Deployment**: See [MULTI_REGION_DEPLOYMENT_GUIDE.md](MULTI_REGION_DEPLOYMENT_GUIDE.md) for detailed instructions on deploying to multiple regions.
 
 ### Steps
 
@@ -143,10 +141,14 @@ Make sure you have these installed/configured first:
    *(only needed once per account/region)*
 
    ```bash
+   # For us-west-2
    cdk bootstrap aws://<your-account-id>/us-west-2
+   
+   # OR for us-east-1
+   cdk bootstrap aws://<your-account-id>/us-east-1
    ```
 
-   🔹 If you see `StagingBucket already exists` errors, delete the old bucket `cdk-hnb659fds-assets-<account>-us-west-2` in S3 and re-run bootstrap.
+   🔹 If you see `StagingBucket already exists` errors, delete the old bucket `cdk-hnb659fds-assets-<account>-<region>` in S3 and re-run bootstrap.
 4. **Synthesize the stack**
 
    ```bash
@@ -186,22 +188,20 @@ The chatbot will now answer based on the context provided in your documents.
   → Make sure Docker Desktop is installed and running. Test with `docker ps`.
 
 * **Error: `SSM parameter /cdk-bootstrap/... not found`**
-  → Run `cdk bootstrap aws://<account>/us-west-2`.
+  → Run `cdk bootstrap aws://<account>/<region>` (replace with your region).
 
 * **Error: `StagingBucket already exists` during bootstrap**
-  → Delete the old S3 bucket `cdk-hnb659fds-assets-<account>-us-west-2` or rerun bootstrap with `--bootstrap-bucket-name`.
+  → Delete the old S3 bucket `cdk-hnb659fds-assets-<account>-<region>` or rerun bootstrap with `--bootstrap-bucket-name`.
 
 * **Deploying to different region**
   → Set region before deploying:
 
   ```bash
-  export AWS_DEFAULT_REGION=us-east-1  # or us-west-2, us-east-2
+  export AWS_DEFAULT_REGION=us-east-1  # or us-west-2
   cdk deploy
   ```
   
-  ⚠️ **Important**: Verify Bedrock model access is enabled in the target region first!
-  
-  See [MULTI_REGION_DEPLOYMENT_GUIDE.md](MULTI_REGION_DEPLOYMENT_GUIDE.md) for complete multi-region instructions.
+  ⚠️ **Important**: Enable Bedrock model access in the Bedrock console for your target region first.
 
 ### Runtime Issues
 
@@ -209,15 +209,15 @@ The chatbot will now answer based on the context provided in your documents.
   → Enable Bedrock model access (see step 5 above). The **Titan Embeddings** model is **required** for document ingestion!
 
 * **Chatbot returns "Server side error"**
-  → Check CloudWatch logs: `aws logs tail /aws/lambda/query-bedrock-llm --follow --region us-west-2`
+  → Check CloudWatch logs: `aws logs tail /aws/lambda/query-bedrock-llm --follow --region <your-region>`
   → Ensure you have uploaded documents and they have been processed (wait 1-2 minutes after upload)
 
 * **File upload doesn't work**
   → Check browser console for errors
-  → Verify the upload Lambda exists: `aws lambda get-function --function-name generate-upload-url --region us-west-2`
+  → Verify the upload Lambda exists: `aws lambda get-function --function-name generate-upload-url --region <your-region>`
 
 * **Documents not appearing in knowledge base**
-  → Check ingestion logs: `aws logs tail /aws/lambda/start-ingestion-trigger --follow --region us-west-2`
+  → Check ingestion logs: `aws logs tail /aws/lambda/start-ingestion-trigger --follow --region <your-region>`
   → Verify Titan Embeddings model access is enabled
 
 

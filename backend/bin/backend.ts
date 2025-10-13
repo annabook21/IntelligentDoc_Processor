@@ -12,21 +12,20 @@ const app = new cdk.App();
  * to determine the deployment region. This allows deployment to any region
  * without code changes.
  * 
- * Supported Regions (verify Bedrock model availability):
- * - us-west-2 (Oregon) ✅ Verified
- * - us-east-1 (N. Virginia) ⚠️ Verify Bedrock models
- * - us-east-2 (Ohio) ⚠️ Verify Bedrock models
- * 
- * REQUIRED MODELS:
- * - amazon.titan-embed-text-v1 (Titan Embeddings)
- * - anthropic.claude-3-sonnet-20240229-v1:0 (Claude 3 Sonnet)
+ * Supported Regions:
+ * - us-west-2 (Oregon)
+ * - us-east-1 (N. Virginia)
  * 
  * To deploy to a specific region:
  *   export AWS_DEFAULT_REGION=us-east-1
  *   cdk bootstrap aws://<account-id>/us-east-1
  *   cdk deploy
  * 
- * For more information: https://docs.aws.amazon.com/cdk/latest/guide/environments.html
+ * Note: Ensure Bedrock model access is enabled in your target region:
+ * - amazon.titan-embed-text-v1
+ * - anthropic.claude-3-sonnet-20240229-v1:0
+ * 
+ * Documentation: https://docs.aws.amazon.com/cdk/latest/guide/environments.html
  */
 new BackendStack(app, 'BackendStack', {
   env: { 
