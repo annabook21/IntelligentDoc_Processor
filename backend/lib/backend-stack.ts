@@ -162,7 +162,7 @@ export class BackendStack extends Stack {
     const s3DataSource = new bedrock.S3DataSource(this, "s3DataSource", {
       bucket: docsBucket,
       knowledgeBase: knowledgeBase,
-      dataSourceName: "docs",
+      dataSourceName: `docs-${this.region}`,
       chunkingStrategy: bedrock.ChunkingStrategy.fixedSize({
         maxTokens: 500,
         overlapPercentage: 20,
@@ -217,7 +217,7 @@ export class BackendStack extends Stack {
 
     const apiGateway = new apigw.RestApi(this, "rag", {
       description: "API for RAG",
-      restApiName: "rag-api",
+      restApiName: `rag-api-${this.region}`,
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
         allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
@@ -364,7 +364,7 @@ export class BackendStack extends Stack {
 
     // Usage plan with throttling for basic API protection
     apiGateway.addUsagePlan("usage-plan", {
-      name: "dev-docs-plan",
+      name: `dev-docs-plan-${this.region}`,
       description: "usage plan for dev",
       apiStages: [
         {
