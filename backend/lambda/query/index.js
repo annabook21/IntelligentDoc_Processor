@@ -31,15 +31,9 @@ exports.handler =
       const retrieveCommand = new RetrieveCommand(retrieveInput);
       const retrievalResponse = await agentClient.send(retrieveCommand);
       
-      // Extract the retrieved text chunks and the source citation
-      let citation = null;
+      // Extract the retrieved text chunks (but don't extract citation yet)
       const retrievedChunks = retrievalResponse.retrievalResults.map(
-        (result) => {
-          if (!citation) { // Grab the citation from the first result
-            citation = result.location?.s3Location?.uri || null;
-          }
-          return result.content.text;
-        }
+        (result) => result.content.text
       );
 
       // 2. Prepare the prompt for the language model
@@ -78,13 +72,19 @@ exports.handler =
           // The body will contain the custom blocked message from the Guardrail.
           // For Messages API, the blocked output is in a different format.
           const blockedMessage = responseBody.content[0].text;
+          // No citation for blocked output
           return makeResults(200, blockedMessage, null, null);
+      }
+
+      // 5. Only extract citation if we successfully got a response
+      let citation = null;
+      if (retrievalResponse.retrievalResults && retrievalResponse.retrievalResults.length > 0) {
+        citation = retrievalResponse.retrievalResults[0].location?.s3Location?.uri || null;
       }
 
       // Extract the response text from the Messages API format
       const responseText = responseBody.content[0].text;
 
-      // We don't get citations back in this manual flow, so we return null
       return makeResults(200, responseText, citation, null);
       
     } catch (err) {
