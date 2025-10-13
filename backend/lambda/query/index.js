@@ -1,17 +1,12 @@
 const {
   BedrockAgentRuntimeClient,
-  RetrieveCommand,
+  RetrieveAndGenerateCommand,
 } = require("@aws-sdk/client-bedrock-agent-runtime");
-const {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} = require("@aws-sdk/client-bedrock-runtime");
 const middy = require('@middy/core').default || require('@middy/core');
 const httpJsonBodyParser = require('@middy/http-json-body-parser').default || require('@middy/http-json-body-parser');
 const httpHeaderNormalizer = require('@middy/http-header-normalizer').default || require('@middy/http-header-normalizer');
 
 const agentClient = new BedrockAgentRuntimeClient({ region: process.env.AWS_REGION });
-const runtimeClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
 
 exports.handler = 
   middy()
@@ -21,71 +16,42 @@ exports.handler =
     const { question, requestSessionId } = event.body;
     
     try {
-      // 1. Retrieve relevant passages from the Knowledge Base
-      const retrieveInput = {
-        knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID,
-        retrievalQuery: {
+      // Use RetrieveAndGenerate API - does retrieval + generation + guardrails atomically
+      // If guardrail blocks, NO citations are returned at all
+      const command = new RetrieveAndGenerateCommand({
+        input: {
           text: question,
         },
-      };
-      const retrieveCommand = new RetrieveCommand(retrieveInput);
-      const retrievalResponse = await agentClient.send(retrieveCommand);
-      
-      // Extract the retrieved text chunks (but don't extract citation yet)
-      const retrievedChunks = retrievalResponse.retrievalResults.map(
-        (result) => result.content.text
-      );
+        retrieveAndGenerateConfiguration: {
+          type: "KNOWLEDGE_BASE",
+          knowledgeBaseConfiguration: {
+            knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID,
+            modelArn: `arn:aws:bedrock:${process.env.AWS_REGION}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
+            generationConfiguration: {
+              promptTemplate: {
+                textPromptTemplate: "Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n$search_results$\n\nQuestion: $query$"
+              },
+              guardrailConfiguration: {
+                guardrailId: process.env.GUARDRAIL_ID,
+                guardrailVersion: process.env.GUARDRAIL_VERSION,
+              },
+            },
+          },
+        },
+      });
 
-      // 2. Prepare the prompt for the language model
-      const formattedContext = retrievedChunks.join("\n\n");
-      const prompt = `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`;
-      
-      const bedrockModelId = "anthropic.claude-3-sonnet-20240229-v1:0"; // Hardcoded to Claude 3 Sonnet
-      
-      // 3. Invoke the language model with the Guardrail using the Messages API format for Claude 3
-      const invokeInput = {
-        modelId: bedrockModelId,
-        contentType: "application/json",
-        accept: "application/json",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: prompt
-            }
-          ]
-        }),
-        guardrailIdentifier: process.env.GUARDRAIL_ID,
-        guardrailVersion: process.env.GUARDRAIL_VERSION,
-      };
+      const response = await agentClient.send(command);
 
-      const invokeCommand = new InvokeModelCommand(invokeInput);
-      const invokeResponse = await runtimeClient.send(invokeCommand);
-      
-      const responseBody = JSON.parse(new TextDecoder().decode(invokeResponse.body));
-
-      // 4. Handle Guardrail interventions on the output
-      if (invokeResponse.amazonBedrockGuardrailAction === 'INTERVENED') {
-          console.warn('🛡️ Guardrail blocked model output.');
-          // The body will contain the custom blocked message from the Guardrail.
-          // For Messages API, the blocked output is in a different format.
-          const blockedMessage = responseBody.content[0].text;
-          // No citation for blocked output
-          return makeResults(200, blockedMessage, null, null);
-      }
-
-      // 5. Only extract citation if we successfully got a response
+      // Extract citation from the first retrieved reference (if any)
       let citation = null;
-      if (retrievalResponse.retrievalResults && retrievalResponse.retrievalResults.length > 0) {
-        citation = retrievalResponse.retrievalResults[0].location?.s3Location?.uri || null;
+      if (response.citations && response.citations.length > 0) {
+        const firstCitation = response.citations[0];
+        if (firstCitation.retrievedReferences && firstCitation.retrievedReferences.length > 0) {
+          citation = firstCitation.retrievedReferences[0].location?.s3Location?.uri || null;
+        }
       }
 
-      // Extract the response text from the Messages API format
-      const responseText = responseBody.content[0].text;
-
-      return makeResults(200, responseText, citation, null);
+      return makeResults(200, response.output.text, citation, response.sessionId);
       
     } catch (err) {
       // Check if the error is a Guardrail blocking the user's input
