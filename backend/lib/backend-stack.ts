@@ -610,9 +610,8 @@ export class BackendStack extends Stack {
         }),
       ],
       destinationBucket: frontendBucket,
-      distribution: distribution,
-      distributionPaths: ["/*"],
-      prune: false, // Don't delete old files to speed up deployment
+      // CloudFront invalidation removed - manual invalidation needed after deployment:
+      // aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
     });
 
     new CfnOutput(this, "CloudFrontURL", {
