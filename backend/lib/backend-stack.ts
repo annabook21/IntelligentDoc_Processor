@@ -42,7 +42,7 @@ export class BackendStack extends Stack {
       {
         runtime: Runtime.NODEJS_20_X,
         entry: join(__dirname, "../lambda/model-check/index.js"),
-        functionName: `bedrock-model-access-check`,
+        functionName: `bedrock-model-access-check-${this.region}`,
         timeout: Duration.minutes(1),
       }
     );
@@ -68,7 +68,7 @@ export class BackendStack extends Stack {
 
     /** Bedrock Guardrails for Content Safety */
     const guardrail = new awsbedrock.CfnGuardrail(this, "ChatbotGuardrail", {
-      name: "chatbot-content-filter",
+      name: `chatbot-content-filter-${this.region}`,
       description: "Content filtering for harmful or inappropriate inputs/outputs",
       blockedInputMessaging:
         "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
@@ -104,7 +104,7 @@ export class BackendStack extends Stack {
 
     const knowledgeBase = new bedrock.VectorKnowledgeBase(
       this,
-      "knowledgeBase",
+      `knowledgeBase-${this.region}`,
       {
         embeddingsModel: bedrock.BedrockFoundationModel.TITAN_EMBED_TEXT_V1,
       }
@@ -162,7 +162,7 @@ export class BackendStack extends Stack {
     const s3DataSource = new bedrock.S3DataSource(this, "s3DataSource", {
       bucket: docsBucket,
       knowledgeBase: knowledgeBase,
-      dataSourceName: "docs",
+      dataSourceName: `docs-${this.region}`,
       chunkingStrategy: bedrock.ChunkingStrategy.fixedSize({
         maxTokens: 500,
         overlapPercentage: 20,
@@ -172,12 +172,12 @@ export class BackendStack extends Stack {
     /** SNS Topic for Alerts */
     const alertTopic = new sns.Topic(this, "AlertTopic", {
       displayName: "Chatbot Processing Alerts",
-      topicName: "chatbot-alerts",
+      topicName: `chatbot-alerts-${this.region}`,
     });
 
     /** Dead Letter Queue for Failed Ingestions */
     const ingestionDLQ = new sqs.Queue(this, "IngestionDLQ", {
-      queueName: "ingestion-failures-dlq",
+      queueName: `ingestion-failures-dlq-${this.region}`,
       retentionPeriod: Duration.days(14),
       visibilityTimeout: Duration.minutes(5),
     });
@@ -187,7 +187,7 @@ export class BackendStack extends Stack {
     const lambdaIngestionJob = new NodejsFunction(this, "IngestionJob", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/ingest/index.js"),
-      functionName: `start-ingestion-trigger`,
+      functionName: `start-ingestion-trigger-${this.region}`,
       timeout: Duration.minutes(15),
       deadLetterQueue: ingestionDLQ,
       retryAttempts: 2,
@@ -202,20 +202,7 @@ export class BackendStack extends Stack {
     // Grant Lambda read access to bucket
     docsBucket.grantRead(lambdaIngestionJob);
 
-    // CRITICAL: Grant BucketNotificationsHandler permissions BEFORE adding notifications
-    // This prevents AccessDenied errors during stack updates/deletes
-    const stack = Stack.of(this);
-    const bucketNotificationsHandler = stack.node.tryFindChild('BucketNotificationsHandler') as lambda.Function;
-    if (bucketNotificationsHandler) {
-      bucketNotificationsHandler.addToRolePolicy(new iam.PolicyStatement({
-        actions: [
-          's3:PutBucketNotificationConfiguration',
-          's3:GetBucketNotificationConfiguration'
-        ],
-        resources: [docsBucket.bucketArn],
-      }));
-    }
-
+    // Add S3 event notification to trigger Lambda on file upload
     docsBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED_PUT,
       new s3n.LambdaDestination(lambdaIngestionJob)
@@ -230,9 +217,28 @@ export class BackendStack extends Stack {
 
     const apiGateway = new apigw.RestApi(this, "rag", {
       description: "API for RAG",
-      restApiName: "rag-api",
+      restApiName: `rag-api-${this.region}`,
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowMethods: apigw.Cors.ALL_METHODS,
+      },
+    });
+
+    // Add CORS headers to error responses (4xx, 5xx)
+    apiGateway.addGatewayResponse('Default4xx', {
+      type: apigw.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+      },
+    });
+
+    apiGateway.addGatewayResponse('Default5xx', {
+      type: apigw.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
       },
     });
 
@@ -241,7 +247,7 @@ export class BackendStack extends Stack {
     const lambdaQuery = new NodejsFunction(this, "Query", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/query/index.js"),
-      functionName: `query-bedrock-llm`,
+      functionName: `query-bedrock-llm-${this.region}`,
       //query lambda duration set to match API Gateway max timeout
       timeout: Duration.seconds(29),
       tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
@@ -253,7 +259,7 @@ export class BackendStack extends Stack {
       },
     });
 
-    // Restrict Bedrock permissions for the two-step RAG process
+    // Grant permission for Retrieve API (two-step RAG process)
     lambdaQuery.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["bedrock:Retrieve"],
@@ -290,7 +296,7 @@ export class BackendStack extends Stack {
     const lambdaUpload = new NodejsFunction(this, "Upload", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/upload/index.js"),
-      functionName: `generate-upload-url`,
+      functionName: `generate-upload-url-${this.region}`,
       timeout: Duration.seconds(10),
       tracing: lambda.Tracing.ACTIVE, // Enable X-Ray tracing
       environment: {
@@ -312,7 +318,7 @@ export class BackendStack extends Stack {
       {
         runtime: Runtime.NODEJS_20_X,
         entry: join(__dirname, "../lambda/ingestion-status/index.js"),
-        functionName: `get-ingestion-status`,
+        functionName: `get-ingestion-status-${this.region}`,
         timeout: Duration.seconds(20),
         tracing: lambda.Tracing.ACTIVE,
         environment: {
@@ -333,9 +339,32 @@ export class BackendStack extends Stack {
       .addResource("ingestion-status")
       .addMethod("GET", new apigw.LambdaIntegration(lambdaIngestionStatus));
 
+    /** Lambda for health checks (DR requirement) */
+    const lambdaHealth = new NodejsFunction(this, "Health", {
+      runtime: Runtime.NODEJS_20_X,
+      entry: join(__dirname, "../lambda/health/index.js"),
+      functionName: `api-health-check-${this.region}`,
+      timeout: Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      environment: {
+        KNOWLEDGE_BASE_ID: knowledgeBase.knowledgeBaseId,
+      },
+    });
+
+    lambdaHealth.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:GetKnowledgeBase"],
+        resources: [knowledgeBase.knowledgeBaseArn],
+      })
+    );
+
+    apiGateway.root
+      .addResource("health")
+      .addMethod("GET", new apigw.LambdaIntegration(lambdaHealth));
+
     // Usage plan with throttling for basic API protection
     apiGateway.addUsagePlan("usage-plan", {
-      name: "dev-docs-plan",
+      name: `dev-docs-plan-${this.region}`,
       description: "usage plan for dev",
       apiStages: [
         {
@@ -359,7 +388,7 @@ export class BackendStack extends Stack {
       threshold: 5,
       evaluationPeriods: 1,
       alarmDescription: "Alert when Query Lambda has >5 errors in 5 minutes",
-      alarmName: "chatbot-query-errors",
+      alarmName: `chatbot-query-errors-${this.region}`,
     });
     queryErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
 
@@ -375,7 +404,7 @@ export class BackendStack extends Stack {
         evaluationPeriods: 1,
         alarmDescription:
           "Alert when Ingestion Lambda has >3 errors in 5 minutes",
-        alarmName: "chatbot-ingestion-errors",
+        alarmName: `chatbot-ingestion-errors-${this.region}`,
       }
     );
     ingestionErrorAlarm.addAlarmAction(
@@ -390,13 +419,108 @@ export class BackendStack extends Stack {
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: "Alert when messages appear in DLQ",
-      alarmName: "chatbot-dlq-messages",
+      alarmName: `chatbot-dlq-messages-${this.region}`,
     });
     dlqAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
+
+    /** CloudWatch Dashboard */
+    
+    const dashboard = new cloudwatch.Dashboard(this, "ChatbotDashboard", {
+      dashboardName: `contextual-chatbot-metrics-${this.region}`,
+      defaultInterval: Duration.hours(3), // Show last 3 hours by default
+      periodOverride: cloudwatch.PeriodOverride.AUTO, // Auto-adapt to time range
+    });
+
+    // Row 1: API Gateway Performance
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "API Gateway - Total Requests",
+        left: [apiGateway.metricCount()],
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: "API Gateway - Errors",
+        left: [
+          apiGateway.metricClientError().with({ 
+            label: "4xx Client Errors", 
+            color: "#FF9900" 
+          }),
+          apiGateway.metricServerError().with({ 
+            label: "5xx Server Errors", 
+            color: "#D13212" 
+          }),
+        ],
+        width: 12,
+      })
+    );
+
+    // Row 2: Lambda Errors
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Lambda Function Errors",
+        left: [
+          lambdaQuery.metricErrors().with({ 
+            label: "Query Lambda", 
+            color: "#D13212" 
+          }),
+          lambdaIngestionJob.metricErrors().with({ 
+            label: "Ingestion Lambda", 
+            color: "#FF9900" 
+          }),
+        ],
+        width: 24,
+      })
+    );
+
+    // Row 3: Lambda Performance
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Query Lambda Duration",
+        left: [lambdaQuery.metricDuration()],
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: "Ingestion Lambda Duration",
+        left: [lambdaIngestionJob.metricDuration()],
+        width: 12,
+      })
+    );
+
+    // Row 4: Dead Letter Queue Monitor
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Failed Ingestions (DLQ Messages)",
+        left: [
+          ingestionDLQ.metricApproximateNumberOfMessagesVisible().with({
+            label: "Messages in DLQ",
+            color: "#D13212",
+          }),
+        ],
+        width: 24,
+      })
+    );
+
+    // Row 5: Lambda Invocations
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Lambda Invocations",
+        left: [
+          lambdaQuery.metricInvocations().with({ label: "Query Lambda" }),
+          lambdaIngestionJob.metricInvocations().with({ label: "Ingestion Lambda" }),
+        ],
+        width: 24,
+      })
+    );
 
     //CfnOutput is used to log API Gateway URL and S3 bucket name to console
     new CfnOutput(this, "APIGatewayUrl", {
       value: apiGateway.url,
+      description: "Base API URL for the chatbot backend",
+    });
+
+    new CfnOutput(this, "HealthEndpoint", {
+      value: `${apiGateway.url}health`,
+      description: "Health check endpoint for Route 53 monitoring and DR failover",
     });
 
     new CfnOutput(this, "DocsBucketName", {
@@ -412,6 +536,11 @@ export class BackendStack extends Stack {
     new CfnOutput(this, "DLQUrl", {
       value: ingestionDLQ.queueUrl,
       description: "Dead Letter Queue for failed ingestions",
+    });
+
+    new CfnOutput(this, "DashboardName", {
+      value: dashboard.dashboardName,
+      description: "CloudWatch Dashboard for monitoring chatbot metrics",
     });
 
     new CfnOutput(this, "GuardrailId", {
@@ -481,8 +610,8 @@ export class BackendStack extends Stack {
         }),
       ],
       destinationBucket: frontendBucket,
-      distribution: distribution,
-      distributionPaths: ["/*"],
+      // CloudFront invalidation removed - manual invalidation needed after deployment:
+      // aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
     });
 
     new CfnOutput(this, "CloudFrontURL", {

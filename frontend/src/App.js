@@ -1,6 +1,5 @@
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
-import { QAHeader } from "./QAHeader";
 import Chat from "./Chat";
 import { useState, useEffect } from "react";
 import { TextField, Typography, Tabs, Tab } from "@mui/material";
@@ -159,19 +158,18 @@ const App = (props) => {
   return (
     <Box
       sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
         minHeight: "100vh",
-        padding: "30px",
+        padding: { xs: "20px", sm: "30px", md: "40px" },
         background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       }}
     >
       <Paper
         elevation={3}
         sx={{
-          padding: 6,
-          maxWidth: 700,
+          padding: { xs: 3, sm: 4, md: 6 },
+          maxWidth: { xs: "100%", sm: "800px", md: "1000px", lg: "1100px" },
+          width: "100%",
+          margin: "0 auto",
           borderRadius: 4,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           backdropFilter: 'blur(10px)',
@@ -208,8 +206,8 @@ const App = (props) => {
           centered
           sx={{ mb: 3 }}
         >
-          <Tab label="Chatbot" />
-          <Tab label="Architecture" />
+          <Tab label="💬 Chatbot" />
+          <Tab label="📚 Architecture" />
         </Tabs>
 
         {activeTab === 0 && (
@@ -222,14 +220,8 @@ const App = (props) => {
                 height: "100%",
               }}
             >
-              <QAHeader
-                setBaseUrl={setBaseUrl}
-                baseUrl={baseUrl}
-              />
-              <Divider sx={{ my: 3 }} />
-
               <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
-                2. Upload Documents (Optional):
+                1. Upload Documents (Optional):
               </Typography>
               <FileUpload baseUrl={baseUrl} onUploadStart={() => setIngestionStatus('STARTING')} />
               <IngestionStatus status={ingestionStatus} />
@@ -245,7 +237,7 @@ const App = (props) => {
                   paddingTop: "20px",
                 }}
               >
-                <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>3. Ask a question:</Typography>
+                <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>2. Ask a question:</Typography>
                 <Button
                   disabled={history.length === 0}
                   startIcon={<DeleteIcon />}
@@ -263,32 +255,32 @@ const App = (props) => {
               ) : (
                 <br></br>
               )}
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingBottom: "20px",
-                paddingTop: "20px",
-              }}
-            >
-              <TextField
-                disabled={spinner || !baseUrl}
-                variant="standard"
-                label="Enter your question here"
-                value={question}
-                onChange={(e) => setQuestion(e.target?.value)}
-                onKeyDown={handleKeyDown}
-                sx={{ width: "95%" }}
-              />
-              <IconButton
-                disabled={spinner || !baseUrl}
-                onClick={handleSendQuestion}
-                color="primary"
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingBottom: "20px",
+                  paddingTop: "20px",
+                }}
               >
-                <SendIcon />
-              </IconButton>
+                <TextField
+                  disabled={spinner || !baseUrl}
+                  variant="standard"
+                  label="Enter your question here"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target?.value)}
+                  onKeyDown={handleKeyDown}
+                  sx={{ width: "95%" }}
+                />
+                <IconButton
+                  disabled={spinner || !baseUrl}
+                  onClick={handleSendQuestion}
+                  color="primary"
+                >
+                  <SendIcon />
+                </IconButton>
+              </Box>
             </Box>
           </>
         )}

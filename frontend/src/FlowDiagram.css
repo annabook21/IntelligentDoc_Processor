@@ -1,0 +1,276 @@
+/* Flow Diagram Container */
+.flow-diagram-container {
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  padding: 30px;
+  margin-top: 20px;
+  min-height: 600px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.flow-diagram {
+  width: 100%;
+  min-width: 1000px;
+  height: auto;
+  max-height: 600px;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Nodes */
+.node {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.node circle {
+  transition: all 0.3s ease;
+}
+
+.node:hover circle {
+  r: 40;
+  stroke-width: 4;
+  fill-opacity: 0.4;
+}
+
+.node.active circle {
+  r: 42;
+  stroke-width: 5;
+  fill-opacity: 0.6;
+  filter: drop-shadow(0 0 10px currentColor);
+}
+
+.node.related circle {
+  fill-opacity: 0.3;
+  stroke-width: 4;
+}
+
+.node-icon {
+  pointer-events: none;
+  user-select: none;
+}
+
+.node-label {
+  pointer-events: none;
+  user-select: none;
+  font-weight: 600;
+}
+
+/* Connections */
+.connection {
+  transition: all 0.3s ease;
+}
+
+.connection-line {
+  stroke: rgba(255, 153, 0, 0.3);
+  stroke-width: 2;
+  fill: none;
+  transition: all 0.3s ease;
+}
+
+.connection.highlighted .connection-line {
+  stroke: #01A88D;
+  stroke-width: 4;
+  filter: drop-shadow(0 0 5px #01A88D);
+  animation: flowPulse 2s ease-in-out infinite;
+}
+
+@keyframes flowPulse {
+  0%, 100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.6;
+  }
+}
+
+.connection-label {
+  fill: #01A88D;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Info Panel */
+.diagram-info-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(35, 47, 62, 0.95);
+  border: 2px solid #FF9900;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  animation: slideIn 0.3s ease-out;
+  z-index: 10;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.info-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(255, 153, 0, 0.3);
+}
+
+.info-panel-header h3 {
+  color: #FF9900;
+  margin: 0;
+  font-size: 1.3em;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #AAB7B8;
+  font-size: 1.5em;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.close-btn:hover {
+  background: rgba(255, 153, 0, 0.2);
+  color: #FF9900;
+  transform: rotate(90deg);
+}
+
+.info-panel-description {
+  color: #AAB7B8;
+  line-height: 1.6;
+  margin-bottom: 15px;
+  font-size: 0.95em;
+}
+
+.info-panel-connections h4 {
+  color: #01A88D;
+  font-size: 1em;
+  margin-bottom: 10px;
+}
+
+.info-panel-connections ul {
+  list-style: none;
+  padding: 0;
+}
+
+.info-panel-connections li {
+  color: #AAB7B8;
+  padding: 6px 0;
+  padding-left: 20px;
+  position: relative;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.info-panel-connections li::before {
+  content: '•';
+  position: absolute;
+  left: 5px;
+  color: #FF9900;
+  font-weight: bold;
+}
+
+/* Legend */
+.diagram-legend {
+  margin-top: 30px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 15px 20px;
+  border: 1px solid rgba(255, 153, 0, 0.2);
+}
+
+.diagram-legend h4 {
+  color: #FF9900;
+  font-size: 1em;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.legend-item span {
+  color: #AAB7B8;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .diagram-info-panel {
+    position: static;
+    max-width: 100%;
+    margin-top: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .flow-diagram-container {
+    padding: 20px 10px;
+  }
+
+  .flow-diagram {
+    max-height: 400px;
+  }
+
+  .legend-items {
+    gap: 10px;
+  }
+
+  .legend-item span {
+    font-size: 0.8em;
+  }
+
+  .diagram-legend h4 {
+    font-size: 0.9em;
+  }
+}
+

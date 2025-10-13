@@ -10,9 +10,9 @@ const {
 const agentClient = new BedrockAgentRuntimeClient({ region: process.env.AWS_REGION });
 const runtimeClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
 
-import middy from '@middy/core';
-import httpJsonBodyParser from '@middy/http-json-body-parser';
-import httpHeaderNormalizer from '@middy/http-header-normalizer';
+const middy = require('@middy/core').default || require('@middy/core');
+const httpJsonBodyParser = require('@middy/http-json-body-parser').default || require('@middy/http-json-body-parser');
+const httpHeaderNormalizer = require('@middy/http-header-normalizer').default || require('@middy/http-header-normalizer');
 
 exports.handler = 
   middy()
@@ -32,20 +32,27 @@ exports.handler =
       const retrieveCommand = new RetrieveCommand(retrieveInput);
       const retrievalResponse = await agentClient.send(retrieveCommand);
       
-      // Extract the retrieved text chunks and the source citation
-      let citation = null;
+      // Extract ONLY the text chunks - DO NOT extract citation yet (wait for guardrail check)
       const retrievedChunks = retrievalResponse.retrievalResults.map(
-        (result) => {
-          if (!citation) { // Grab the citation from the first result
-            citation = result.location?.s3Location?.uri || null;
-          }
-          return result.content.text;
-        }
+        (result) => result.content.text
       );
 
       // 2. Prepare the prompt for the language model
       const formattedContext = retrievedChunks.join("\n\n");
-      const prompt = `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`;
+      const prompt = `You are a helpful assistant that answers questions based ONLY on the provided context. Do not use any outside knowledge.
+
+CRITICAL RULES:
+- Use ONLY the information in the context below
+- If the context doesn't contain the answer, say "I don't have that information in the provided documents"
+- Do NOT make up information or use general knowledge
+- Quote directly from the context when possible
+
+Context:
+${formattedContext}
+
+Question: ${question}
+
+Answer based ONLY on the context above:`;
       
       const bedrockModelId = "anthropic.claude-3-sonnet-20240229-v1:0"; // Hardcoded to Claude 3 Sonnet
       
@@ -60,7 +67,7 @@ exports.handler =
           messages: [
             {
               role: "user",
-              content: `Based on the following context, please answer the question. If the answer is not in the context, say you don't know.\n\nContext:\n${formattedContext}\n\nQuestion: ${question}`
+              content: prompt
             }
           ]
         }),
@@ -73,19 +80,23 @@ exports.handler =
       
       const responseBody = JSON.parse(new TextDecoder().decode(invokeResponse.body));
 
-      // 4. Handle Guardrail interventions on the output
-      if (invokeResponse.amazonBedrockGuardrailAction === 'INTERVENED') {
-          console.warn('🛡️ Guardrail blocked model output.');
-          // The body will contain the custom blocked message from the Guardrail.
-          // For Messages API, the blocked output is in a different format.
+      // 4. Handle Guardrail interventions (check response body, not response metadata)
+      if (responseBody['amazon-bedrock-guardrailAction'] === 'INTERVENED') {
+          console.warn('🛡️ Guardrail blocked content.');
           const blockedMessage = responseBody.content[0].text;
+          // Return with NULL citation when guardrail blocks
           return makeResults(200, blockedMessage, null, null);
+      }
+
+      // 5. Guardrail passed! NOW extract the citation
+      let citation = null;
+      if (retrievalResponse.retrievalResults && retrievalResponse.retrievalResults.length > 0) {
+        citation = retrievalResponse.retrievalResults[0].location?.s3Location?.uri || null;
       }
 
       // Extract the response text from the Messages API format
       const responseText = responseBody.content[0].text;
 
-      // We don't get citations back in this manual flow, so we return null
       return makeResults(200, responseText, citation, null);
       
     } catch (err) {
@@ -109,7 +120,9 @@ function makeResults(statusCode,responseText,citationText,responseSessionId){
       sessionId: responseSessionId
 		}),
 		headers: {
-			'Access-Control-Allow-Origin': '*'
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Headers': 'Content-Type',
+			'Access-Control-Allow-Methods': 'POST, OPTIONS'
 		}
 	}; 
 }

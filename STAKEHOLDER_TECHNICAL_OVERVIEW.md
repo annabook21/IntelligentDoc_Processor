@@ -12,6 +12,8 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 - **Pay-per-Use Model**: No upfront costs, only pay for actual usage
 - **Enterprise Security**: Built-in encryption, access controls, and content filtering
 - **Production Ready**: Comprehensive monitoring, error handling, and disaster recovery
+- **Multi-Region DR**: Automatic failover between us-west-2 and us-east-1 with <3 minute RTO
+- **Health Monitoring**: Real-time health checks with Route 53 integration
 
 ---
 
@@ -85,6 +87,7 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 | `/docs` | POST | Submit user query | Query Lambda |
 | `/upload` | POST | Generate pre-signed S3 URL | Upload Lambda |
 | `/ingestion-status` | GET | Check document processing status | Status Lambda |
+| `/health` | GET | System health check for DR monitoring | Health Lambda |
 
 **Configuration:**
 - **CORS**: Enabled for cross-origin requests from CloudFront domain
@@ -104,7 +107,7 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 
 ---
 
-## 3. Compute Layer (Lambda Functions)
+## 3. Compute Layer (Lambda Functions - 5 Total)
 
 ### 3.1 Query Lambda (`query-bedrock-llm`)
 
@@ -538,8 +541,14 @@ Permissions:
 ```bash
 cd backend
 npm install
-cdk bootstrap  # First time only
-cdk deploy     # 10-15 minutes
+
+# Bootstrap both regions (first time only)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+cdk bootstrap aws://$ACCOUNT/us-west-2
+cdk bootstrap aws://$ACCOUNT/us-east-1
+
+# Deploy to BOTH regions simultaneously
+cdk deploy --all  # 15-20 minutes
 ```
 
 **Post-Deployment:**
