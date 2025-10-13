@@ -511,77 +511,23 @@ const Documentation = () => {
             <div className="calc-inputs">
               <div className="calc-input-group">
                 <label>Number of Users:</label>
-                <div className="calc-input-controls">
-                  <button 
-                    className="calc-btn calc-btn-minus"
-                    onClick={() => setNumUsers(Math.max(1, numUsers - 10))}
-                  >
-                    -10
-                  </button>
-                  <button 
-                    className="calc-btn calc-btn-minus"
-                    onClick={() => setNumUsers(Math.max(1, numUsers - 1))}
-                  >
-                    -
-                  </button>
-                  <input 
-                    type="number" 
-                    value={numUsers} 
-                    onChange={(e) => setNumUsers(Math.max(1, parseInt(e.target.value) || 1))}
-                    onInput={(e) => setNumUsers(Math.max(1, parseInt(e.target.value) || 1))}
-                    min="1"
-                    className="calc-number-input"
-                  />
-                  <button 
-                    className="calc-btn calc-btn-plus"
-                    onClick={() => setNumUsers(numUsers + 1)}
-                  >
-                    +
-                  </button>
-                  <button 
-                    className="calc-btn calc-btn-plus"
-                    onClick={() => setNumUsers(numUsers + 10)}
-                  >
-                    +10
-                  </button>
-                </div>
+                <input 
+                  type="number" 
+                  value={numUsers} 
+                  onChange={(e) => setNumUsers(Math.max(1, parseInt(e.target.value) || 1))}
+                  onInput={(e) => setNumUsers(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                />
               </div>
               <div className="calc-input-group">
                 <label>Queries per Month:</label>
-                <div className="calc-input-controls">
-                  <button 
-                    className="calc-btn calc-btn-minus"
-                    onClick={() => setNumQueries(Math.max(1, numQueries - 100))}
-                  >
-                    -100
-                  </button>
-                  <button 
-                    className="calc-btn calc-btn-minus"
-                    onClick={() => setNumQueries(Math.max(1, numQueries - 10))}
-                  >
-                    -10
-                  </button>
-                  <input 
-                    type="number" 
-                    value={numQueries} 
-                    onChange={(e) => setNumQueries(Math.max(1, parseInt(e.target.value) || 1))}
-                    onInput={(e) => setNumQueries(Math.max(1, parseInt(e.target.value) || 1))}
-                    min="1"
-                    className="calc-number-input"
-                  />
-                  <button 
-                    className="calc-btn calc-btn-plus"
-                    onClick={() => setNumQueries(numQueries + 10)}
-                  >
-                    +10
-                  </button>
-                  <button 
-                    className="calc-btn calc-btn-plus"
-                    onClick={() => setNumQueries(numQueries + 100)}
-                  >
-                    +100
-                  </button>
-                </div>
+                <input 
+                  type="number" 
+                  value={numQueries} 
+                  onChange={(e) => setNumQueries(Math.max(1, parseInt(e.target.value) || 1))}
+                  onInput={(e) => setNumQueries(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                />
               </div>
             </div>
             <div className="calc-results">
