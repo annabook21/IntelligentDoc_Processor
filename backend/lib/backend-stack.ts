@@ -68,7 +68,7 @@ export class BackendStack extends Stack {
 
     /** Bedrock Guardrails for Content Safety */
     const guardrail = new awsbedrock.CfnGuardrail(this, "ChatbotGuardrail", {
-      name: "chatbot-content-filter",
+      name: `chatbot-content-filter-${this.region}`,
       description: "Content filtering for harmful or inappropriate inputs/outputs",
       blockedInputMessaging:
         "This request has been flagged for harmful language/content. Please rephrase your request and try again.",
