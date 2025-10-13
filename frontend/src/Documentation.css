@@ -138,85 +138,9 @@
 .calc-input-group label {
   color: #AAB7B8;
   font-weight: 600;
-  font-size: 1.05em;
 }
 
-.calc-input-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.calc-btn {
-  background: rgba(255, 153, 0, 0.2);
-  border: 2px solid rgba(255, 153, 0, 0.5);
-  color: #FF9900;
-  padding: 10px 16px;
-  border-radius: 6px;
-  font-size: 0.95em;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 50px;
-}
-
-.calc-btn:hover {
-  background: rgba(255, 153, 0, 0.3);
-  border-color: #FF9900;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(255, 153, 0, 0.3);
-}
-
-.calc-btn:active {
-  transform: translateY(0);
-}
-
-.calc-btn-minus {
-  background: rgba(255, 79, 139, 0.2);
-  border-color: rgba(255, 79, 139, 0.5);
-  color: #FF4F8B;
-}
-
-.calc-btn-minus:hover {
-  background: rgba(255, 79, 139, 0.3);
-  border-color: #FF4F8B;
-  box-shadow: 0 4px 12px rgba(255, 79, 139, 0.3);
-}
-
-.calc-btn-plus {
-  background: rgba(1, 168, 141, 0.2);
-  border-color: rgba(1, 168, 141, 0.5);
-  color: #01A88D;
-}
-
-.calc-btn-plus:hover {
-  background: rgba(1, 168, 141, 0.3);
-  border-color: #01A88D;
-  box-shadow: 0 4px 12px rgba(1, 168, 141, 0.3);
-}
-
-.calc-number-input {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 153, 0, 0.3);
-  color: #fff;
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 1.2em;
-  font-weight: 600;
-  text-align: center;
-  width: 120px;
-  flex-shrink: 0;
-}
-
-.calc-number-input:focus {
-  outline: none;
-  border-color: #FF9900;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* Legacy input styling (fallback) */
-.calc-input-group input:not(.calc-number-input) {
+.calc-input-group input {
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 153, 0, 0.3);
   color: #fff;
@@ -225,7 +149,7 @@
   font-size: 1.1em;
 }
 
-.calc-input-group input:not(.calc-number-input):focus {
+.calc-input-group input:focus {
   outline: none;
   border-color: #FF9900;
   background: rgba(255, 255, 255, 0.15);
