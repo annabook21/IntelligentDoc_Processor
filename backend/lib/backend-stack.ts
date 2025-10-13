@@ -610,8 +610,8 @@ export class BackendStack extends Stack {
         }),
       ],
       destinationBucket: frontendBucket,
-      distribution: distribution,
-      distributionPaths: ["/*"],
+      // Remove distribution invalidation to prevent timeout issues
+      // Users can manually invalidate CloudFront or wait for cache to expire
     });
 
     new CfnOutput(this, "CloudFrontURL", {
