@@ -1,6 +1,5 @@
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
-import { QAHeader } from "./QAHeader";
 import Chat from "./Chat";
 import { useState, useEffect } from "react";
 import { TextField, Typography, Tabs, Tab } from "@mui/material";
@@ -221,14 +220,8 @@ const App = (props) => {
                 height: "100%",
               }}
             >
-              <QAHeader
-                setBaseUrl={setBaseUrl}
-                baseUrl={baseUrl}
-              />
-              <Divider sx={{ my: 3 }} />
-
               <Typography variant="overline" sx={{ paddingBottom: "10px", fontSize: "0.9rem", fontWeight: 500 }}>
-                2. Upload Documents (Optional):
+                1. Upload Documents (Optional):
               </Typography>
               <FileUpload baseUrl={baseUrl} onUploadStart={() => setIngestionStatus('STARTING')} />
               <IngestionStatus status={ingestionStatus} />
@@ -244,7 +237,7 @@ const App = (props) => {
                   paddingTop: "20px",
                 }}
               >
-                <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>3. Ask a question:</Typography>
+                <Typography variant="overline" sx={{ fontSize: "0.9rem", fontWeight: 500 }}>2. Ask a question:</Typography>
                 <Button
                   disabled={history.length === 0}
                   startIcon={<DeleteIcon />}

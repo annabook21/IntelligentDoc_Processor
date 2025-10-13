@@ -111,6 +111,7 @@
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 25px;
   margin-top: 30px;
+  align-items: start; /* Prevents cards from stretching when adjacent cards expand */
 }
 
 /* Cost Calculator */
