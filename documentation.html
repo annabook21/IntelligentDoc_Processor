@@ -624,6 +624,81 @@ graph TB
         </div>
 
         <div class="section">
+            <h2>🌍 Multi-Region Disaster Recovery</h2>
+            
+            <p style="font-size: 1.1em; color: #5A6C7D; margin-bottom: 30px;">
+                The application is deployed to both <strong>us-west-2 (primary)</strong> and <strong>us-east-1 (failover)</strong> with CloudFront origin failover for automatic frontend failover.
+            </p>
+
+            <h3>CloudFront Origin Failover (Current Implementation)</h3>
+            <div class="success-box">
+                <strong style="font-size: 1.2em; color: #01A88D; display: block; margin-bottom: 10px;">✅ No Custom Domain Required</strong>
+                CloudFront automatically fails over between S3 buckets in different regions without needing Route 53 or a custom domain.
+            </div>
+
+            <div class="architecture-grid">
+                <div class="component-card">
+                    <h4><span class="component-icon">🔄</span> Origin Group Configuration</h4>
+                    <p><strong>Primary:</strong> S3 us-west-2 (OAC, private)<br/><strong>Secondary:</strong> S3 us-east-1 (website endpoint)<br/><strong>Failover:</strong> Automatic on 500/502/503/504 errors</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">⚡</span> Frontend RTO</h4>
+                    <p><strong>2-3 seconds</strong> for automatic failover. CloudFront retries the primary origin on subsequent requests after recovery.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">🔧</span> API Failover</h4>
+                    <p><strong>Manual intervention</strong> required. Update frontend config.json to point to failover API Gateway endpoint in us-east-1.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">💰</span> Cost</h4>
+                    <p>No additional cost. Included in CloudFront and S3 pricing. No Route 53 hosted zone or health check fees.</p>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 40px;">Route 53 DNS Failover (Alternative)</h3>
+            <div class="warning-box">
+                <strong style="color: #FF9900;">⚠️ Requires a Custom Domain</strong>
+                <p style="margin-top: 10px;">Route 53 failover is only available if you own a domain and create a Route 53 hosted zone. This approach provides automatic failover for both frontend and API.</p>
+            </div>
+
+            <div class="architecture-grid">
+                <div class="component-card">
+                    <h4><span class="component-icon">🌐</span> DNS Health Checks</h4>
+                    <p>Route 53 monitors /health endpoints in both regions every 30 seconds. Fails over automatically on 3 consecutive failures (90 seconds).</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">⚡</span> Full Stack RTO</h4>
+                    <p><strong>&lt;2 minutes</strong> for automatic failover of both frontend and API. Health-based (not error-based) failover.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">📋</span> Requirements</h4>
+                    <p>Registered domain, Route 53 hosted zone, ALIAS records for CloudFront, CNAME records for API Gateway subdomain.</p>
+                </div>
+
+                <div class="component-card">
+                    <h4><span class="component-icon">💰</span> Additional Cost</h4>
+                    <p>~$1.50-2.00/month for Route 53 hosted zone ($0.50) + 2 health checks ($0.50 each) + DNS query fees.</p>
+                </div>
+            </div>
+
+            <div class="info-box" style="margin-top: 30px;">
+                <strong style="font-size: 1.2em; color: #146EB4; display: block; margin-bottom: 10px;">📚 Implementation Details</strong>
+                See <a href="DISASTER_RECOVERY_SETUP.md" style="color: #146EB4; font-weight: 600;">DISASTER_RECOVERY_SETUP.md</a> for complete instructions on:
+                <ul style="margin-top: 15px;">
+                    <li>Testing CloudFront origin failover</li>
+                    <li>Implementing Route 53 DNS failover (if you have a custom domain)</li>
+                    <li>Manual API failover procedures</li>
+                    <li>Disaster recovery testing and validation</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
             <h2>⚙️ Performance Tuning</h2>
             <ul>
                 <li><strong>Lambda Memory Optimization:</strong> Monitor "Max Memory Used" in CloudWatch Logs and adjust <code>memorySize</code> in <code>backend-stack.ts</code> for optimal cost/performance balance</li>

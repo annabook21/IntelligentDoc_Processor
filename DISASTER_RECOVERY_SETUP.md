@@ -2,29 +2,75 @@
 
 ## Overview
 
-This guide implements **REAL** multi-region disaster recovery using:
-- **Primary Region**: us-west-2 (active)
-- **Failover Region**: us-east-1 (standby)  
-- **Route 53 Health Checks**: Monitors actual backend health
-- **Automatic Failover**: <5 minutes RTO (Recovery Time Objective)
+This application uses **CloudFront Origin Failover** for automatic frontend failover without requiring a custom domain. This guide covers:
 
-**All implementations are REAL. No placeholders.**
+1. **CloudFront Origin Failover** (Default - No custom domain required)
+2. **Route 53 DNS Failover** (Alternative - Requires custom domain)
+
+### Current Implementation: CloudFront Origin Failover
+
+**Deployed Configuration:**
+- **Primary Region**: us-west-2 (active)
+- **Failover Region**: us-east-1 (standby)
+- **Frontend Failover**: Automatic via CloudFront Origin Groups (2-3 second RTO)
+- **API Failover**: Manual (requires config update)
+
+**How It Works:**
+```
+User Request → CloudFront Distribution (us-west-2)
+                    ↓
+             Origin Group:
+             ├─ Primary: S3 us-west-2 (OAC, private)
+             └─ Secondary: S3 us-east-1 (website endpoint)
+                    ↓
+          Failover on 500/502/503/504
+```
+
+**Advantages:**
+- ✅ No custom domain required
+- ✅ Fast failover (2-3 seconds)
+- ✅ Automatic recovery
+- ✅ Works with CloudFront's default domain
+
+**Limitations:**
+- ❌ API failover is manual
+- ❌ Requires updating config.json to failover API endpoint
 
 ---
 
-## Architecture
+## Architecture Comparison
+
+### Option 1: CloudFront Origin Failover (Current)
 
 ```
 User Request
     ↓
-Route 53 (DNS with health checks)
+CloudFront Distribution (single, in us-west-2)
+    ↓
+Origin Group Failover
+    ├─ Primary: S3 us-west-2 (OAC)
+    └─ Failover: S3 us-east-1 (website)
+```
+
+**Frontend RTO**: 2-3 seconds (automatic)  
+**API RTO**: Manual intervention required
+
+### Option 2: Route 53 DNS Failover (Alternative)
+
+⚠️ **Requires a custom domain with Route 53 hosted zone**
+
+```
+User Request
+    ↓
+Route 53 (DNS with health checks on your-domain.com)
     ↓
 Primary (us-west-2)          Failover (us-east-1)
+    ├─ CloudFront                ├─ CloudFront
     ├─ API Gateway               ├─ API Gateway
     ├─ /health endpoint          ├─ /health endpoint  
     ├─ Lambda Functions          ├─ Lambda Functions
     ├─ Bedrock KB                ├─ Bedrock KB
-    └─ S3 Documents              └─ S3 Documents (replicated)
+    └─ S3 Documents              └─ S3 Documents
 ```
 
 **Health Check Flow:**
@@ -32,6 +78,18 @@ Primary (us-west-2)          Failover (us-east-1)
 - Health Lambda tests REAL Bedrock KB connectivity
 - If unhealthy for 3 checks (90 sec), Route 53 fails over to us-east-1
 - Returns to primary when healthy again
+
+**Frontend + API RTO**: <2 minutes (automatic)
+
+**Advantages:**
+- ✅ Automatic failover for both frontend and API
+- ✅ Health-based failover (not error-based)
+- ✅ Custom domain (brand control)
+
+**Requirements:**
+- ❌ Requires owning a domain
+- ❌ Requires Route 53 hosted zone ($0.50/month + query costs)
+- ❌ More complex DNS setup
 
 ---
 
@@ -601,12 +659,226 @@ aws route53 list-resource-record-sets --hosted-zone-id $HOSTED_ZONE_ID
 
 ---
 
+## Alternative: Route 53 DNS Failover Implementation
+
+⚠️ **Only use this approach if you have a custom domain**
+
+### Prerequisites for Route 53 Failover
+
+1. ✅ A registered domain name (e.g., via Route 53 Domains, GoDaddy, Namecheap)
+2. ✅ Route 53 hosted zone for your domain
+3. ✅ Both regions (us-west-2 and us-east-1) deployed with the current CDK stack
+
+### Why Route 53 Requires a Custom Domain
+
+Route 53 failover policies work by creating DNS records that point to your resources. However:
+
+- **CloudFront distributions** come with default domains like `d35a4gobdc4tt7.cloudfront.net`
+- **API Gateway endpoints** come with default domains like `abc123.execute-api.us-west-2.amazonaws.com`
+- Route 53 **cannot create health check-based failover records** for domains you don't control
+- You **cannot create a CNAME record at the apex** of a domain (e.g., `yourdomain.com`) pointing to CloudFront
+
+**Solution:** Create a Route 53 hosted zone for your custom domain, then use:
+- **ALIAS records** for CloudFront (supports apex domain)
+- **CNAME records** for API Gateway (requires subdomain like `api.yourdomain.com`)
+- **Health checks** that monitor your `/health` endpoints
+- **Failover routing policy** to automatically switch between regions
+
+### Step 1: Create Route 53 Hosted Zone
+
+If you don't already have a hosted zone:
+
+```bash
+# Create hosted zone for your domain
+HOSTED_ZONE_ID=$(aws route53 create-hosted-zone \
+  --name yourdomain.com \
+  --caller-reference $(date +%s) \
+  --query 'HostedZone.Id' \
+  --output text)
+
+echo "Hosted Zone ID: $HOSTED_ZONE_ID"
+
+# Get name servers
+aws route53 get-hosted-zone --id $HOSTED_ZONE_ID \
+  --query 'DelegationSet.NameServers'
+```
+
+**Update your domain registrar** with the Route 53 name servers returned above.
+
+### Step 2: Create Health Checks for Both Regions
+
+```bash
+# Health check for Primary (us-west-2)
+PRIMARY_API="abc123.execute-api.us-west-2.amazonaws.com"
+PRIMARY_HC_ID=$(aws route53 create-health-check \
+  --caller-reference primary-health-$(date +%s) \
+  --health-check-config \
+    Type=HTTPS,\
+    ResourcePath=/prod/health,\
+    FullyQualifiedDomainName=$PRIMARY_API,\
+    Port=443,\
+    RequestInterval=30,\
+    FailureThreshold=3 \
+  --query 'HealthCheck.Id' \
+  --output text)
+
+# Health check for Failover (us-east-1)
+FAILOVER_API="def456.execute-api.us-east-1.amazonaws.com"
+FAILOVER_HC_ID=$(aws route53 create-health-check \
+  --caller-reference failover-health-$(date +%s) \
+  --health-check-config \
+    Type=HTTPS,\
+    ResourcePath=/prod/health,\
+    FullyQualifiedDomainName=$FAILOVER_API,\
+    Port=443,\
+    RequestInterval=30,\
+    FailureThreshold=3 \
+  --query 'HealthCheck.Id' \
+  --output text)
+
+echo "Primary Health Check: $PRIMARY_HC_ID"
+echo "Failover Health Check: $FAILOVER_HC_ID"
+```
+
+### Step 3: Create Failover DNS Records
+
+```bash
+# Get CloudFront distribution IDs
+PRIMARY_CF="d35a4gobdc4tt7.cloudfront.net"
+FAILOVER_CF="e12f3ghij45kl6.cloudfront.net"
+
+# Create failover record set for frontend (yourdomain.com)
+cat > change-batch-frontend.json << EOF
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "yourdomain.com",
+        "Type": "A",
+        "SetIdentifier": "Primary",
+        "Failover": "PRIMARY",
+        "AliasTarget": {
+          "HostedZoneId": "Z2FDTNDATAQYW2",
+          "DNSName": "$PRIMARY_CF",
+          "EvaluateTargetHealth": false
+        },
+        "HealthCheckId": "$PRIMARY_HC_ID"
+      }
+    },
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "yourdomain.com",
+        "Type": "A",
+        "SetIdentifier": "Failover",
+        "Failover": "SECONDARY",
+        "AliasTarget": {
+          "HostedZoneId": "Z2FDTNDATAQYW2",
+          "DNSName": "$FAILOVER_CF",
+          "EvaluateTargetHealth": false
+        }
+      }
+    }
+  ]
+}
+EOF
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id $HOSTED_ZONE_ID \
+  --change-batch file://change-batch-frontend.json
+
+# Create failover record set for API (api.yourdomain.com)
+cat > change-batch-api.json << EOF
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "api.yourdomain.com",
+        "Type": "CNAME",
+        "SetIdentifier": "Primary",
+        "Failover": "PRIMARY",
+        "TTL": 60,
+        "ResourceRecords": [{"Value": "$PRIMARY_API"}],
+        "HealthCheckId": "$PRIMARY_HC_ID"
+      }
+    },
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "api.yourdomain.com",
+        "Type": "CNAME",
+        "SetIdentifier": "Failover",
+        "Failover": "SECONDARY",
+        "TTL": 60,
+        "ResourceRecords": [{"Value": "$FAILOVER_API"}]
+      }
+    }
+  ]
+}
+EOF
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id $HOSTED_ZONE_ID \
+  --change-batch file://change-batch-api.json
+```
+
+**Note:** `Z2FDTNDATAQYW2` is the hosted zone ID for CloudFront distributions (global, always the same).
+
+### Step 4: Update Frontend Config
+
+Update your frontend's `config.json` to use the custom domain:
+
+```json
+{
+  "apiEndpoint": "https://api.yourdomain.com/prod"
+}
+```
+
+### Step 5: Verify Route 53 Failover
+
+```bash
+# Check DNS resolution
+dig yourdomain.com
+dig api.yourdomain.com
+
+# Test health checks
+aws route53 get-health-check-status --health-check-id $PRIMARY_HC_ID
+aws route53 get-health-check-status --health-check-id $FAILOVER_HC_ID
+
+# Simulate failure by taking down primary region, then:
+# Wait 90 seconds for health checks to fail
+# DNS should resolve to failover region
+```
+
+### Cost Considerations for Route 53
+
+- **Hosted Zone**: $0.50/month
+- **Health Checks**: $0.50/month per health check (2 = $1.00/month)
+- **DNS Queries**: $0.40 per million queries for first 1 billion queries
+- **Total Estimated Cost**: ~$1.50-$2.00/month for Route 53 failover
+
+### Route 53 vs CloudFront Origin Failover
+
+| Feature | CloudFront Origin Failover | Route 53 DNS Failover |
+|---------|---------------------------|------------------------|
+| **Custom Domain** | Not required | Required |
+| **Frontend Failover** | Automatic (2-3s RTO) | Automatic (<2min RTO) |
+| **API Failover** | Manual | Automatic |
+| **Cost** | Included in CloudFront | +$1.50-$2/month |
+| **Setup Complexity** | Low | Medium |
+| **Health Checks** | Error-based (5xx) | Endpoint-based (/health) |
+
+---
+
 ## Summary
 
 ✅ **REAL Implementation** - Both regions fully deployed, not placeholders  
+✅ **CloudFront Origin Failover** - Automatic frontend failover without custom domain  
+✅ **Route 53 Alternative** - Full automatic failover if you have a custom domain  
 ✅ **Real Health Checks** - Tests actual Bedrock KB connectivity  
-✅ **Automatic Failover** - Route 53 handles it automatically  
-✅ **Data Replication** - Documents sync across regions  
+✅ **Data Replication** - Documents sync across regions (optional)  
 ✅ **Monitoring** - CloudWatch + SNS alerts  
 ✅ **Tested** - Failover drills verify DR works  
 
@@ -614,8 +886,10 @@ aws route53 list-resource-record-sets --hosted-zone-id $HOSTED_ZONE_ID
 
 ---
 
-**Last Updated:** October 13, 2025  
+**Last Updated:** October 14, 2025  
 **Tested Regions:** us-west-2 (primary), us-east-1 (failover)  
-**Estimated RTO:** 2-3 minutes  
-**Estimated RPO:** 0-15 minutes
+**Current Strategy:** CloudFront Origin Failover  
+**Frontend RTO:** 2-3 seconds (automatic)  
+**API RTO:** Manual intervention (or <2 minutes with Route 53)  
+**Estimated RPO:** N/A (stateless application)
 

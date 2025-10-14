@@ -555,36 +555,69 @@ export class BackendStack extends Stack {
 
     /** Frontend */
 
+    // Primary/failover region constants
+    const primaryRegion = 'us-west-2';
+    const failoverRegion = 'us-east-1';
+    const isPrimaryRegion = Stack.of(this).region === primaryRegion;
+    const accountId = Stack.of(this).account;
+
+    // Deterministic bucket name per region so we can reference cross-region website endpoint
+    const frontendBucketName = `chatbox-frontend-${accountId}-${Stack.of(this).region}`;
+
     // S3 bucket for the frontend app
     const frontendBucket = new s3.Bucket(this, "FrontendBucket", {
+      bucketName: frontendBucketName,
       websiteIndexDocument: "index.html",
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      // In primary region keep bucket private (CloudFront OAC). In failover region host via website endpoint (public read via bucket policy).
+      blockPublicAccess: isPrimaryRegion ? s3.BlockPublicAccess.BLOCK_ALL : s3.BlockPublicAccess.BLOCK_ACLS,
+      publicReadAccess: !isPrimaryRegion,
     });
 
-    // CloudFront distribution
-    const distribution = new cloudfront.Distribution(this, "Distribution", {
-      defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(frontendBucket),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      },
-      defaultRootObject: "index.html",
-      errorResponses: [
-        {
-          httpStatus: 403,
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-          ttl: Duration.minutes(5),
+    // CloudFront distribution (only in primary region) with origin failover to the failover region's website endpoint
+    let distribution: cloudfront.Distribution | undefined;
+    if (isPrimaryRegion) {
+      const primaryOrigin = origins.S3BucketOrigin.withOriginAccessControl(frontendBucket);
+
+      // Failover origin: S3 static website endpoint in the failover region
+      const failoverBucketName = `chatbox-frontend-${accountId}-${failoverRegion}`;
+      const failoverWebsiteDomain = `${failoverBucketName}.s3-website-${failoverRegion}.amazonaws.com`;
+      const secondaryOrigin = new origins.HttpOrigin(failoverWebsiteDomain, {
+        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+        connectionAttempts: 1,
+        connectionTimeout: Duration.seconds(2),
+      });
+
+      const originGroup = new origins.OriginGroup({
+        primaryOrigin,
+        fallbackOrigin: secondaryOrigin,
+        fallbackStatusCodes: [500, 502, 503, 504],
+      });
+
+      distribution = new cloudfront.Distribution(this, "Distribution", {
+        enabled: true,
+        defaultBehavior: {
+          origin: originGroup,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
-        {
-          httpStatus: 404,
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-          ttl: Duration.minutes(5),
-        },
-      ],
-    });
+        defaultRootObject: "index.html",
+        errorResponses: [
+          {
+            httpStatus: 403,
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+            ttl: Duration.minutes(5),
+          },
+          {
+            httpStatus: 404,
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+            ttl: Duration.minutes(5),
+          },
+        ],
+      });
+    }
 
     // Deploy the React app to the S3 bucket
     new s3deploy.BucketDeployment(this, "DeployFrontend", {
@@ -614,8 +647,16 @@ export class BackendStack extends Stack {
       // aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
     });
 
-    new CfnOutput(this, "CloudFrontURL", {
-      value: distribution.distributionDomainName,
-    });
+    if (distribution) {
+      new CfnOutput(this, "CloudFrontURL", {
+        value: distribution.distributionDomainName,
+      });
+    } else {
+      // In failover region, output the website endpoint for validation
+      new CfnOutput(this, "FrontendWebsiteUrl", {
+        value: `http://${frontendBucket.bucketWebsiteDomainName}`,
+        description: "Failover region S3 website endpoint",
+      });
+    }
   }
 }

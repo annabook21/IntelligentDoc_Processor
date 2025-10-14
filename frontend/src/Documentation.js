@@ -60,19 +60,21 @@ const Documentation = () => {
       name: 'CloudFront',
       category: 'CDN',
       color: '#8C4FFF',
-      shortDesc: 'Global traffic cop delivering your website worldwide',
+      shortDesc: 'Global traffic cop with automatic multi-region failover',
       responsibilities: [
         'Cache static files at 450+ edge locations globally',
         'Enforce HTTPS and manage SSL certificates',
-        'Protect S3 from direct access using OAC',
+        'Protect primary S3 from direct access using OAC',
+        'Automatically fail over to secondary region on errors',
         'Handle routing errors for single-page apps'
       ],
-      analogy: 'Like having 450 convenience stores worldwide instead of one warehouse - people get your product faster from the nearest store.',
+      analogy: 'Like having 450 convenience stores worldwide with backup warehouses - if the main warehouse fails, automatically switch to backup in 2-3 seconds.',
       keyMetric: 'Cache hit ratio should be above 80% (most requests served from cache, not S3)',
       details: {
         caching: 'When a user in Tokyo requests main.js, CloudFront checks if it has a copy in Tokyo data center. If yes: 10ms response. If no: fetches from S3 once, then caches it.',
         security: 'Users CANNOT access s3://your-bucket/index.html directly. They MUST go through CloudFront.',
-        spa: 'If someone goes to /about but that file doesn\'t exist, CloudFront returns index.html and React Router handles routing.'
+        spa: 'If someone goes to /about but that file doesn\'t exist, CloudFront returns index.html and React Router handles routing.',
+        failover: 'Origin Group with primary (us-west-2 OAC) and secondary (us-east-1 website endpoint). Fails over on 500/502/503/504 errors in 2-3 seconds. No custom domain required!'
       }
     },
     {
@@ -166,8 +168,8 @@ const Documentation = () => {
             'Check configuration and environment variables',
             'Return health status: healthy (200) or unhealthy (503)'
           ],
-          trigger: 'Route 53 health checks (every 30 seconds)',
-          critical: 'Used by Route 53 for automatic failover to backup region'
+          trigger: 'Can be used by Route 53 health checks (optional)',
+          critical: 'Available for Route 53 DNS failover if you have a custom domain. Frontend uses CloudFront origin failover by default.'
         }
       ],
       costComparison: 'Regular server: $50/month 24/7. Lambda: ~$0.20 for 1,000 questions/month'
@@ -345,10 +347,12 @@ const Documentation = () => {
       name: 'Route 53 Health Checks',
       category: 'DR',
       color: '#8C4FFF',
-      shortDesc: 'Automatic failover monitoring and traffic routing',
-      responsibility: 'Monitor both regions and automatically route traffic to healthy endpoints',
-      drStrategy: 'Active-Passive with automatic failover',
-      healthChecks: [
+      shortDesc: 'Alternative failover approach (requires custom domain)',
+      responsibility: 'Optional: Monitor both regions and automatically route traffic to healthy endpoints',
+      drStrategy: 'Alternative to CloudFront origin failover - only needed if you own a custom domain',
+      currentImplementation: 'NOT USED - Frontend uses CloudFront Origin Failover instead (no custom domain required)',
+      whyNotUsed: 'Route 53 failover requires owning a domain and creating a hosted zone. CloudFront origin failover works with default CloudFront domains.',
+      ifYouHaveADomain: [
         {
           region: 'Primary (us-west-2)',
           endpoint: '/health',
@@ -364,16 +368,10 @@ const Documentation = () => {
         }
       ],
       whatItChecks: 'The /health endpoint actually calls Bedrock Knowledge Base API to verify backend is operational (not just returning 200 OK)',
-      failoverFlow: [
-        '1. Route 53 checks primary /health every 30 seconds',
-        '2. If 3 consecutive failures detected (90 seconds total)',
-        '3. Route 53 updates DNS to point to failover region',
-        '4. All new requests go to us-east-1',
-        '5. When primary recovers, traffic automatically returns'
-      ],
-      rto: '2-3 minutes (detection + DNS propagation)',
-      rpo: '0-15 minutes (S3 replication lag)',
-      costPerMonth: '$1 (2 health checks at $0.50 each)'
+      advantages: 'Automatic API failover (not just frontend), health-based detection',
+      disadvantages: 'Requires custom domain (~$12/year) + Route 53 hosted zone ($0.50/month) + health checks ($1/month)',
+      rto: '<2 minutes (detection + DNS propagation)',
+      documentation: 'See DISASTER_RECOVERY_SETUP.md for implementation guide'
     },
     {
       id: 'multi-region',
@@ -381,24 +379,29 @@ const Documentation = () => {
       name: 'Multi-Region Architecture',
       category: 'DR',
       color: '#146EB4',
-      shortDesc: 'Full stack deployed in two regions for disaster recovery',
+      shortDesc: 'Full stack deployed in two regions with CloudFront origin failover',
       responsibility: 'Ensure application availability even if an entire AWS region fails',
       deployedRegions: [
         {
           name: 'Primary: us-west-2 (Oregon)',
           purpose: 'Handles all traffic under normal conditions',
-          components: 'Full stack: API Gateway, 5 Lambdas, Bedrock KB, S3, CloudFront'
+          components: 'Full stack: API Gateway, 5 Lambdas, Bedrock KB, S3 (private with OAC)'
         },
         {
           name: 'Failover: us-east-1 (N. Virginia)',
           purpose: 'Standby region that activates if primary fails',
-          components: 'Identical stack: API Gateway, 5 Lambdas, Bedrock KB, S3, CloudFront'
+          components: 'Identical stack: API Gateway, 5 Lambdas, Bedrock KB, S3 (website endpoint)'
         }
       ],
-      dataSync: 'S3 Cross-Region Replication ensures documents uploaded to primary are automatically copied to failover (15-minute SLA)',
+      failoverStrategy: [
+        'Frontend: CloudFront Origin Group automatically fails over on 5xx errors (2-3 second RTO)',
+        'API: Manual failover - update config.json to point to us-east-1 API endpoint',
+        'Alternative: Use Route 53 DNS failover for automatic API failover (requires custom domain)'
+      ],
       realDeployment: 'Both regions are FULLY deployed with real resources, not placeholders. Each region can independently serve all requests.',
       automatedSetup: 'Single CDK command deploys to both regions: cd backend && cdk deploy --all',
-      businessValue: 'If Oregon data center fails, application automatically switches to Virginia in under 3 minutes with zero manual intervention.'
+      businessValue: 'If Oregon data center fails, frontend automatically switches to Virginia in 2-3 seconds. No custom domain required!',
+      noDomainRequired: 'Unlike Route 53 failover, CloudFront origin failover works with default CloudFront domains - no need to own a domain.'
     }
   ];
 
@@ -415,9 +418,9 @@ const Documentation = () => {
     
     // DR costs (optional - for multi-region deployment)
     const drSecondRegion = singleRegionTotal; // Full stack in second region
-    const route53HealthChecks = Number('1.00'); // 2 health checks
-    const s3Replication = Number('0.20'); // Cross-region data transfer
-    const drTotal = drSecondRegion + route53HealthChecks + s3Replication;
+    const cloudfrontFailover = Number('0.00'); // Included in CloudFront
+    const route53Optional = Number('1.50'); // Only if using Route 53 DNS failover (custom domain)
+    const drTotal = drSecondRegion + cloudfrontFailover; // CloudFront failover is free
     
     return {
       s3: s3Storage.toFixed(2),
@@ -575,7 +578,10 @@ const Documentation = () => {
                   <li>This serverless solution (with DR): <strong>${costs.totalWithDR}/month</strong></li>
                 </ul>
                 <p style={{marginTop: '15px', color: '#01A88D', fontWeight: 600}}>
-                  💡 DR adds ~${costs.drCost}/month but provides &lt;3 minute recovery time if an entire region fails.
+                  💡 DR adds ~${costs.drCost}/month but provides 2-3 second frontend failover via CloudFront (no custom domain needed).
+                </p>
+                <p style={{marginTop: '10px', color: '#146EB4', fontSize: '0.95em'}}>
+                  📌 Want automatic API failover too? Add Route 53 DNS failover (+$1.50/month, requires custom domain).
                 </p>
               </div>
             </div>
