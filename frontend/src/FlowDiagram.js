@@ -228,9 +228,9 @@ const FlowDiagram = () => {
 
       {/* Legend */}
       <div className="diagram-legend">
-        <h4>💡 Frontend DR: CloudFront Origin Failover (W2 → E1); Backend API switch is manual</h4>
+        <h4>💡 Frontend DR: Automatic CloudFront Origin Failover (W2 → E1 on 5xx)</h4>
         <p style={{fontSize: '12px', marginTop: '5px', marginBottom: '10px'}}>
-          Frontend: CloudFront origin group serves from S3 (W2) and fails over to S3 (E1) on 5xx. Backend: Update config.json to point to failover API or implement client-side retry.
+          Frontend: CloudFront origin group automatically serves from S3 (W2) and instantly fails over to S3 (E1) on 5xx errors. No DNS change, same CloudFront URL. Backend: Manual API switch via config.json or custom client-side retry.
         </p>
         <div className="legend-items">
           <div className="legend-item">

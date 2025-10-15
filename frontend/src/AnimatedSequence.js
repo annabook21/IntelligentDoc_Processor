@@ -93,8 +93,8 @@ const AnimatedSequence = ({ flowType }) => {
       icon: '✅',
       title: 'Return to User',
       description: 'Answer + citations displayed in chat',
-      details: 'Lambda formats response with markdown, includes source document names. Frontend stays on the same CloudFront URL. Backend API failover is manual (update config.json) or client-side if implemented.',
-      technical: 'Total round-trip: ~2.3 seconds (primary). If primary API fails, switch config.json to the failover API URL (or implement client-side retry).',
+      details: 'Lambda formats response with markdown, includes source document names. Frontend CloudFront automatically fails over to S3 (E1) on 5xx from primary. Backend API failover requires manual config.json update or client-side retry logic.',
+      technical: 'Total round-trip: ~2.3 seconds (primary). Frontend failover: automatic via CloudFront origin group. Backend failover: manual.',
       time: '10ms'
     }
   ];
@@ -353,8 +353,8 @@ const AnimatedSequence = ({ flowType }) => {
             <li>Vector search takes only <strong>200ms</strong> to search through thousands of documents</li>
             <li>Guardrails add <strong>100ms total</strong> but prevent harmful content</li>
             <li>Warm Lambda invocations respond in <strong>&lt;100ms</strong></li>
-            <li><strong>DR (Frontend):</strong> CloudFront origin group fails over to S3 (E1) on <strong>5xx</strong></li>
-            <li><strong>DR (Backend):</strong> Switch API to us-east-1 manually via <code>config.json</code> (or client-side retry if implemented)</li>
+            <li><strong>DR (Frontend):</strong> CloudFront origin group <strong>automatically</strong> fails over to S3 (E1) on <strong>5xx</strong> (instant, no DNS change)</li>
+            <li><strong>DR (Backend API):</strong> Manual failover via <code>config.json</code> update or custom client-side retry logic</li>
           </ul>
         ) : (
           <ul>

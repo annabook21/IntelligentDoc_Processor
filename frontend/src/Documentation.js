@@ -342,25 +342,37 @@ const Documentation = () => {
       whyExists: 'Single pane of glass for all system metrics. Instead of checking 5 different CloudWatch pages, see everything in one dashboard. Critical for debugging and capacity planning.'
     },
     {
-      id: 'route53',
-      icon: '🌐',
-      name: 'Route 53 Health Checks',
+      id: 'backend-failover',
+      icon: '🔄',
+      name: 'Backend API Failover',
       category: 'DR',
       color: '#8C4FFF',
-      shortDesc: 'Backend API health checks and DNS failover (API only)',
-      responsibility: 'Backend failover can be handled manually by updating the frontend\'s config.json to point to the failover API URL. Frontend uses CloudFront origin-group failover (no DNS change).',
-      drStrategy: 'Active-Passive (manual API switch; CloudFront handles frontend automatically)',
-      healthChecks: [],
-      whatItChecks: 'Frontend may optionally call /health to decide when to switch API URLs if client-side failover is implemented.',
-      failoverFlow: [
-        '1. Detect API failures in frontend (e.g., fetch errors or /health)',
-        '2. Update config.json to point to failover API URL (manual) or implement client-side retry list',
-        '3. Resume normal operation using us-east-1 API',
-        '4. Switch back to primary when confirmed healthy'
+      shortDesc: 'Manual backend API failover (optional Route 53 setup available)',
+      responsibility: 'Backend API failover requires manual intervention: update config.json to point to the failover API URL, or implement client-side retry logic. Frontend CloudFront failover is automatic (origin-group).',
+      drStrategy: 'Frontend: Automatic (CloudFront origin group). Backend: Manual or custom client-side logic.',
+      healthChecks: [
+        {
+          region: 'Primary (us-west-2)',
+          endpoint: '/health',
+          status: 'Available for monitoring'
+        },
+        {
+          region: 'Failover (us-east-1)',
+          endpoint: '/health',
+          status: 'Available for monitoring'
+        }
       ],
-      rto: 'Manual: depends on response time to update config.json',
-      rpo: '0-15 minutes (S3 replication lag)',
-      costPerMonth: '$1 (2 health checks at $0.50 each)'
+      whatItChecks: 'The /health endpoint tests Bedrock Knowledge Base connectivity. Can be used for manual monitoring or custom client-side failover logic.',
+      failoverFlow: [
+        '1. Detect API failures (e.g., fetch errors, timeouts, or /health checks)',
+        '2. Option A: Manually update config.json in both S3 frontend buckets to point to failover API URL',
+        '3. Option B: Implement client-side retry logic with fallback API list',
+        '4. Option C: Set up Route 53 DNS failover with health checks (requires custom domain)',
+        '5. Switch back to primary when confirmed healthy'
+      ],
+      rto: 'Manual: minutes to hours (depends on detection + response). Automatic (Route 53): ~2-3 minutes if configured.',
+      rpo: '0 (stateless API)',
+      costPerMonth: 'Manual: $0. Route 53 (optional): $1/month for 2 health checks'
     },
     {
       id: 'multi-region',
@@ -383,9 +395,9 @@ const Documentation = () => {
         }
       ],
       dataSync: 'S3 Cross-Region Replication ensures documents uploaded to primary are automatically copied to failover (15-minute SLA)',
-      realDeployment: 'Both regions deploy full backend stacks. Frontend uses a single global CloudFront distribution with origin failover (S3 W2 → S3 E1 on 5xx).',
+      realDeployment: 'Both regions deploy full backend stacks. Frontend uses a single global CloudFront distribution with automatic origin failover (S3 W2 → S3 E1 on 5xx).',
       automatedSetup: 'Single CDK command deploys to both regions: cd backend && cdk deploy --all',
-      businessValue: 'If Oregon fails: Frontend fails over at CloudFront immediately on 5xx; backend API routes via Route 53 within ~2–3 minutes.'
+      businessValue: 'If Oregon fails: Frontend automatically fails over at CloudFront (instant on 5xx); backend API requires manual switch or custom client-side retry logic.'
     }
   ];
 
