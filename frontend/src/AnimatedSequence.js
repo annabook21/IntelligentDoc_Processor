@@ -12,7 +12,7 @@ const AnimatedSequence = ({ flowType }) => {
       icon: '👤',
       title: 'User Asks Question',
       description: 'User types: "What is our refund policy?"',
-      details: 'Route 53 routes request to healthy region (us-west-2 primary, or us-east-1 if primary down)',
+      details: 'CloudFront serves the app from S3 (W2) and fails over to S3 (E1) on 5xx. API calls target the primary API Gateway.',
       technical: 'POST https://api.example.com/docs { "question": "What is our refund policy?" }',
       time: '0ms'
     },
@@ -93,7 +93,7 @@ const AnimatedSequence = ({ flowType }) => {
       icon: '✅',
       title: 'Return to User',
       description: 'Answer + citations displayed in chat',
-      details: 'Lambda formats response with markdown, includes source document names. Meanwhile, Route 53 continuously monitors /health endpoint every 30 seconds for automatic failover.',
+      details: 'Lambda formats response with markdown, includes source document names. Route 53 monitors /health for API failover (backend only); frontend stays on the same CloudFront URL.',
       technical: 'Total round-trip: ~2.3 seconds (primary). If primary fails, Route 53 auto-routes to us-east-1 in <3 minutes.',
       time: '10ms'
     }
@@ -353,7 +353,8 @@ const AnimatedSequence = ({ flowType }) => {
             <li>Vector search takes only <strong>200ms</strong> to search through thousands of documents</li>
             <li>Guardrails add <strong>100ms total</strong> but prevent harmful content</li>
             <li>Warm Lambda invocations respond in <strong>&lt;100ms</strong></li>
-            <li><strong>DR:</strong> If us-west-2 fails, Route 53 automatically routes to us-east-1 in <strong>&lt;3 minutes</strong></li>
+            <li><strong>DR (Frontend):</strong> CloudFront origin group fails over to S3 (E1) on <strong>5xx</strong></li>
+            <li><strong>DR (Backend):</strong> Route 53 routes API to us-east-1 in <strong>&lt;3 minutes</strong></li>
           </ul>
         ) : (
           <ul>
