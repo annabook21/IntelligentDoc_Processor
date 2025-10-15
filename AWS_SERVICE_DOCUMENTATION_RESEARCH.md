@@ -406,6 +406,53 @@ catch (error) {
 
 ---
 
+## 13. Amazon CloudFront — OAC with S3 REST Origins and Origin Failover
+
+### Official Documentation
+- Restricting access to S3 origins with Origin Access Control (OAC): https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
+- High availability with origin failover: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/high_availability_origin_failover.html
+- Static website endpoints (not compatible with OAC): https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html
+
+### Key Findings
+- OAC only signs requests to S3 REST endpoints; it does not work with S3 website endpoints.
+- For private S3 buckets, grant CloudFront access via bucket resource policy to the CloudFront service principal `cloudfront.amazonaws.com` with a condition on `AWS:SourceArn` of the distribution ARN.
+- Origin failover is configured via an Origin Group. CloudFront retries the request against the fallback origin when the primary returns configured status codes (commonly 500, 502, 503, 504).
+
+### Example Bucket Policy (Least Effort Redeployable)
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCloudFrontOACRead",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudfront.amazonaws.com" },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::<bucket-name>/*",
+      "Condition": {
+        "StringLike": {
+          "AWS:SourceArn": "arn:aws:cloudfront::<account-id>:distribution/*"
+        }
+      }
+    }
+  ]
+}
+```
+- Tightening: replace `distribution/*` with a specific distribution ID using SSM handoff or cross-region references when needed.
+
+### Verification Checklist
+- Distribution Origins: both `S3BucketOrigin.withOriginAccessControl(...)` (no `HttpOrigin` to website endpoints).
+- Bucket Public Access: Block Public Access ON; `enforceSSL: true` set.
+- Bucket Policy: service principal `cloudfront.amazonaws.com` with `AWS:SourceArn` condition present.
+- Origin Group: fallback status codes limited to 5xx for availability-driven failover.
+- SPA: CloudFront custom error response maps 404 → `/index.html` (403 not remapped).
+
+### Compliance
+- Aligns with AWS guidance for private S3 origins with OAC and CloudFront origin failover.
+- Avoids public website endpoints; supports “anyone can deploy” by allowing account-scoped distribution ARNs.
+
+---
+
 ## Conclusion
 
 ✅ **ALL IMPLEMENTATIONS ARE VALIDATED**
