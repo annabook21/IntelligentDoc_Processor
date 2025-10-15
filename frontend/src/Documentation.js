@@ -60,19 +60,21 @@ const Documentation = () => {
       name: 'CloudFront',
       category: 'CDN',
       color: '#8C4FFF',
-      shortDesc: 'Global traffic cop delivering your website worldwide',
+      shortDesc: 'Global CDN with origin failover (private S3 REST origins via OAC)',
       responsibilities: [
         'Cache static files at 450+ edge locations globally',
         'Enforce HTTPS and manage SSL certificates',
-        'Protect S3 from direct access using OAC',
-        'Handle routing errors for single-page apps'
+        'Protect S3 from direct access using OAC (no public buckets)',
+        'Fail over from primary S3 origin (us-west-2) to failover S3 origin (us-east-1) on 5xx',
+        'Handle SPA routing by mapping 404 → index.html'
       ],
-      analogy: 'Like having 450 convenience stores worldwide instead of one warehouse - people get your product faster from the nearest store.',
+      analogy: 'Two private warehouses behind one storefront. If the first warehouse is unavailable, the storefront automatically fetches from the second.',
       keyMetric: 'Cache hit ratio should be above 80% (most requests served from cache, not S3)',
       details: {
-        caching: 'When a user in Tokyo requests main.js, CloudFront checks if it has a copy in Tokyo data center. If yes: 10ms response. If no: fetches from S3 once, then caches it.',
-        security: 'Users CANNOT access s3://your-bucket/index.html directly. They MUST go through CloudFront.',
-        spa: 'If someone goes to /about but that file doesn\'t exist, CloudFront returns index.html and React Router handles routing.'
+        caching: 'CloudFront serves cached assets from the nearest edge. On first miss, it fetches from the S3 origin, then caches.',
+        security: 'Both S3 origins are private. Access is allowed only for this account\'s CloudFront distributions using OAC (AWS:SourceArn).',
+        failover: 'Origin group retries requests against the failover S3 origin if the primary returns 5xx. Users keep the same CloudFront URL.',
+        spa: '404s are mapped to index.html so client-side routing works.'
       }
     },
     {
