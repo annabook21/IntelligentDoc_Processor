@@ -13,9 +13,9 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 - **Enterprise Security**: Built-in encryption, access controls, and content filtering
 - **Production Ready**: Comprehensive monitoring, error handling, and disaster recovery
 - **Multi-Region DR**: 
-  - **Frontend**: CloudFront origin group automatically fails over to us-east-1 on 5xx errors (immediate)
-  - **Backend API**: Route 53 health checks route traffic to us-east-1 in <3 minutes
-- **Always Available**: Even if Oregon (us-west-2) goes offline, users stay online with zero manual intervention
+  - **Frontend**: CloudFront origin group automatically fails over to us-east-1 on 5xx errors (< 1 second, no manual intervention)
+  - **Backend API**: Manual failover via config.json update (or optional Route 53 DNS setup with custom domain)
+- **Frontend Always Available**: Even if Oregon (us-west-2) S3 fails, CloudFront serves from Virginia automatically
 
 ---
 
@@ -102,7 +102,7 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 | `/docs` | POST | Submit user query | Query Lambda |
 | `/upload` | POST | Generate pre-signed S3 URL | Upload Lambda |
 | `/ingestion-status` | GET | Check document processing status | Status Lambda |
-| `/health` | GET | Backend API health check for Route 53 DR monitoring | Health Lambda |
+| `/health` | GET | System health check endpoint (tests Bedrock KB connectivity) | Health Lambda |
 
 **Configuration:**
 - **CORS**: Enabled for cross-origin requests from CloudFront domain
@@ -225,18 +225,18 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 
 ### 3.5 Health Lambda (`health-check`)
 
-**Purpose**: Enables backend API disaster recovery through Route 53 health checks.
+**Purpose**: Provides system health status by testing actual Bedrock Knowledge Base connectivity.
 
 **Execution Flow:**
-1. Route 53 calls `/health` endpoint every 30 seconds
+1. Receives GET request to `/health` endpoint
 2. Lambda verifies Bedrock Knowledge Base connectivity
 3. Returns HTTP 200 if healthy, 5xx if unhealthy
-4. After 3 consecutive failures (90 seconds), Route 53 routes traffic to failover region
+4. Can be used for monitoring dashboards or custom failover logic
 
 **Business Value:**
-- **Automatic Failover**: No manual intervention needed during regional outages
 - **True Health Check**: Verifies actual backend functionality, not just "Lambda is running"
-- **Fast Detection**: 90-second detection window
+- **Monitoring**: Enables external monitoring systems to track system health
+- **Optional DNS Failover**: Can be integrated with Route 53 health checks if custom domain is configured
 
 ---
 
@@ -534,12 +534,13 @@ Permissions:
 - **RTO**: < 1 second
 - **User Impact**: None (same CloudFront URL)
 
-**Backend DR (Route 53 Health Checks):**
-- **Method**: Route 53 DNS failover based on /health endpoint monitoring
-- **Detection**: 90 seconds (3 consecutive failed health checks)
-- **Switchover**: DNS update to failover API Gateway
-- **RTO**: 2-3 minutes (includes DNS propagation)
-- **User Impact**: Minimal (automatic retry in frontend)
+**Backend API DR (Manual Failover):**
+- **Method**: Manual update of config.json in S3 frontend buckets
+- **Detection**: Manual monitoring or custom alerting
+- **Switchover**: Update config.json to point to us-east-1 API URL, invalidate CloudFront cache
+- **RTO**: Manual (minutes to hours depending on detection and response time)
+- **User Impact**: API errors until config.json is updated
+- **Optional Enhancement**: Route 53 DNS failover can be configured with custom domain (see DR docs)
 
 **Document Sync:**
 - **Method**: S3 Cross-Region Replication (CRR)
@@ -555,10 +556,10 @@ Permissions:
 - **Multi-Region Deployment**: One command deploys both regions: `cdk deploy --all`
 
 **Business Value:**
-- **Zero Downtime**: Regional failures don't impact users
-- **No Manual Intervention**: All failover is automatic
-- **Cost-Effective DR**: Standby resources only cost ~$10-20/month extra
-- **Peace of Mind**: Sleep well knowing your app survives data center failures
+- **Frontend Zero Downtime**: CloudFront origin failover is automatic (< 1 second)
+- **Backend Redundancy**: Full backend stack deployed in both regions, ready for manual switch
+- **Cost-Effective DR**: Standby resources only cost ~$7-10/month extra
+- **Flexible Failover**: Manual control over backend failover, or optionally configure Route 53 DNS automation
 
 ---
 

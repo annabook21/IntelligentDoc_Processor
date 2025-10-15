@@ -26,17 +26,14 @@ The architecture is fully serverless, event-driven, and **multi-region with auto
 
 ```mermaid
 graph TD
-    subgraph "Global Traffic Management"
-        User[<fa:fa-user> User] -->|1. DNS Lookup| R53[<fa:fa-globe> Route 53]
-        R53 -->|Health Check: /health endpoint| HC[<fa:fa-heartbeat> Health Checks]
-        R53 -->|Routes to healthy region| Regions
+    subgraph "Global CDN Layer"
+        User[<fa:fa-user> User] -->|1. HTTPS| CF[<fa:fa-cloud> CloudFront]
+        CF -->|Primary Origin| FE_S3_1[<fa:fa-box> S3 Frontend W2]
+        CF -.->|Failover on 5xx| FE_S3_2[<fa:fa-box> S3 Frontend E1]
     end
 
     subgraph "Primary Region - us-west-2"
-        Regions -->|2. Accesses UI| FE_CF1[<fa:fa-cloud> CloudFront]
-        FE_CF1 -->|Serves static| FE_S3_1[<fa:fa-box> Frontend S3]
-        
-        User -->|3. API Requests| APIGW1[<fa:fa-server> API Gateway]
+        User -->|2. API Requests| APIGW1[<fa:fa-server> API Gateway]
         APIGW1 -->|/docs| QueryLambda1[<fa:fa-bolt> Query Lambda]
         APIGW1 -->|/upload| UploadLambda1[<fa:fa-bolt> Upload Lambda]
         APIGW1 -->|/ingestion-status| StatusLambda1[<fa:fa-bolt> Status Lambda]
@@ -50,10 +47,7 @@ graph TD
     end
 
     subgraph "Failover Region - us-east-1"
-        Regions -->|Failover route| FE_CF2[<fa:fa-cloud> CloudFront]
-        FE_CF2 -->|Serves static| FE_S3_2[<fa:fa-box> Frontend S3]
-        
-        User -.->|If primary down| APIGW2[<fa:fa-server> API Gateway]
+        User -.->|Manual switch| APIGW2[<fa:fa-server> API Gateway]
         APIGW2 -.->|/docs| QueryLambda2[<fa:fa-bolt> Query Lambda]
         APIGW2 -.->|/health| HealthLambda2[<fa:fa-heartbeat> Health Lambda]
         
@@ -70,8 +64,7 @@ graph TD
     end
 
     style User fill:#f9f,stroke:#333,stroke-width:2px
-    style R53 fill:#8C4FFF,stroke:#333,stroke-width:2px
-    style HC fill:#01A88D,stroke:#333,stroke-width:2px
+    style CF fill:#8C4FFF,stroke:#333,stroke-width:2px
     style CW fill:#FF9900,stroke:#333,stroke-width:2px
 ```
 
@@ -90,7 +83,7 @@ graph TD
   - **`/docs` (POST):** The primary endpoint for submitting user queries to the chatbot.
   - **`/upload` (POST):** Generates pre-signed URLs for direct file uploads to S3.
   - **`/ingestion-status` (GET):** Returns the status of document ingestion jobs.
-  - **`/health` (GET):** Health check endpoint that tests Bedrock KB connectivity for Route 53 monitoring and DR failover.
+  - **`/health` (GET):** Health check endpoint that tests Bedrock KB connectivity. Can be used for monitoring or custom failover logic.
 
 ### 3. Backend Logic (5 Lambda Functions)
 
@@ -107,7 +100,7 @@ graph TD
 
 - **Ingestion Status Lambda (`AWS::Lambda::Function`):** Polls Bedrock to check the status of ingestion jobs and reports back to the frontend.
 
-- **Health Check Lambda (`AWS::Lambda::Function`):** NEW - Tests actual Bedrock Knowledge Base connectivity and returns system health status for Route 53 health checks and DR monitoring.
+- **Health Check Lambda (`AWS::Lambda::Function`):** Tests actual Bedrock Knowledge Base connectivity and returns system health status for monitoring.
 
 ### 4. Data Ingestion & Knowledge Base
 
@@ -138,11 +131,9 @@ graph TD
 
 ### 7. Disaster Recovery & High Availability
 
-- **Frontend Failover (CloudFront Origin Group):** Frontend remains on a single CloudFront URL. If the primary S3 origin (us-west-2) returns 5xx, CloudFront automatically retries against the failover S3 origin (us-east-1) and serves content without DNS changes.
-- **Backend Failover (Route 53 Health Checks):** API failover continues to use Route 53 health checks over the `/health` endpoint, switching API traffic between regions.
-- **Recovery Objectives:**
-  - **RTO:** ~2-3 minutes for API via Route 53; frontend failover occurs per-request via CloudFront when 5xx occurs
-  - **RPO:** 0-15 minutes (S3 replication time)
+- **Frontend Failover (CloudFront Origin Group):** Frontend remains on a single CloudFront URL. If the primary S3 origin (us-west-2) returns 5xx, CloudFront automatically retries against the failover S3 origin (us-east-1) and serves content without DNS changes. **RTO: < 1 second (automatic).**
+- **Backend API Failover (Manual):** Both regions deploy full backend stacks with `/health` endpoints. To fail over the backend API, manually update `config.json` in both S3 frontend buckets to point to the failover API URL, then invalidate CloudFront cache. **RTO: Manual (minutes to hours depending on response time).**
+- **Document Replication:** S3 Cross-Region Replication ensures documents uploaded to primary are automatically copied to failover. **RPO: 0-15 minutes.**
 
 ---
 
@@ -165,12 +156,12 @@ cdk deploy --all
 ```
 
 This deployment:
-- ✅ Creates `BackendStack-Primary` in us-west-2
+- ✅ Creates `BackendStack-Primary` in us-west-2 with CloudFront distribution
 - ✅ Creates `BackendStack-Failover` in us-east-1
-- ✅ Includes Route 53 health checks for automatic failover
-- ✅ Both stacks are identical and production-ready
+- ✅ CloudFront automatically fails over frontend between S3 origins on 5xx
+- ✅ Backend API failover requires manual config.json update
 
-**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for complete DR details.**
+**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for complete DR details and optional Route 53 DNS failover setup.**
 
 ---
 
