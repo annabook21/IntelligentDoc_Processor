@@ -8,7 +8,7 @@ const FlowDiagram = () => {
   const nodes = [
     // Global / DR Layer
     { id: 'user', label: '👤 User', x: 50, y: 50, category: 'external', color: '#8C4FFF' },
-    { id: 'route53', label: '🌐 Route 53', x: 200, y: 50, category: 'dr', color: '#8C4FFF' },
+    // Removed Route 53 node (backend DNS failover not used in this deployment)
     
     // Frontend CDN (single distribution with origin failover)
     { id: 'cloudfront', label: '☁️ CloudFront', x: 350, y: 120, category: 'cdn', color: '#569A31' },
@@ -34,9 +34,7 @@ const FlowDiagram = () => {
     // Global Traffic Management
     { from: 'user', to: 'cloudfront', type: 'https', label: 'HTTPS' },
     
-    // Route 53 Health Checks (backend only)
-    { from: 'route53', to: 'lambda-health-primary', type: 'health', label: 'Health Check /health' },
-    { from: 'route53', to: 'lambda-health-failover', type: 'health', label: 'Health Check /health' },
+    // Backend DNS failover removed; backend API switching is manual/client-side if implemented
     
     // Primary Region - Frontend Flow
     { from: 'cloudfront', to: 's3-frontend-primary', type: 'fetch', label: 'Serve Assets (primary)' },
@@ -62,7 +60,7 @@ const FlowDiagram = () => {
   const getNodeDescription = (nodeId) => {
     const descriptions = {
       'user': 'End users accessing the chatbot through their web browser from anywhere in the world',
-      'route53': 'DNS service for backend DR only. Monitors /health endpoints and fails over API traffic if primary is down.',
+      // Route 53 removed in this deployment; backend API switching is manual/client-side if implemented
       
       // Primary Region
       'cloudfront': 'Global CDN with origin group: serves from S3 (W2) and fails over to S3 (E1) on 5xx',
@@ -230,9 +228,9 @@ const FlowDiagram = () => {
 
       {/* Legend */}
       <div className="diagram-legend">
-        <h4>💡 Multi-Region DR Architecture: Primary (us-west-2) + Failover (us-east-1)</h4>
+        <h4>💡 Frontend DR: CloudFront Origin Failover (W2 → E1); Backend API switch is manual</h4>
         <p style={{fontSize: '12px', marginTop: '5px', marginBottom: '10px'}}>
-          Frontend: CloudFront origin group serves from S3 (W2) and fails over to S3 (E1) on 5xx. Backend: Route 53 monitors /health and routes API traffic to the healthy region.
+          Frontend: CloudFront origin group serves from S3 (W2) and fails over to S3 (E1) on 5xx. Backend: Update config.json to point to failover API or implement client-side retry.
         </p>
         <div className="legend-items">
           <div className="legend-item">

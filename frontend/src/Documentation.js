@@ -348,32 +348,17 @@ const Documentation = () => {
       category: 'DR',
       color: '#8C4FFF',
       shortDesc: 'Backend API health checks and DNS failover (API only)',
-      responsibility: 'Monitor backend health and automatically route API traffic to the healthy region. Frontend uses CloudFront origin-group failover (no DNS change).',
-      drStrategy: 'Active-Passive with automatic failover',
-      healthChecks: [
-        {
-          region: 'Primary (us-west-2)',
-          endpoint: '/health',
-          interval: 'Every 30 seconds',
-          failureThreshold: '3 consecutive failures (90 seconds)',
-          action: 'Route traffic to failover region'
-        },
-        {
-          region: 'Failover (us-east-1)',
-          endpoint: '/health',
-          interval: 'Every 30 seconds',
-          status: 'Standby - receives traffic only if primary fails'
-        }
-      ],
-      whatItChecks: 'The /health endpoint actually calls Bedrock Knowledge Base API to verify backend is operational (not just returning 200 OK)',
+      responsibility: 'Backend failover can be handled manually by updating the frontend\'s config.json to point to the failover API URL. Frontend uses CloudFront origin-group failover (no DNS change).',
+      drStrategy: 'Active-Passive (manual API switch; CloudFront handles frontend automatically)',
+      healthChecks: [],
+      whatItChecks: 'Frontend may optionally call /health to decide when to switch API URLs if client-side failover is implemented.',
       failoverFlow: [
-        '1. Route 53 checks primary /health every 30 seconds',
-        '2. If 3 consecutive failures detected (90 seconds total)',
-        '3. Route 53 updates DNS to point to failover region',
-        '4. All new requests go to us-east-1',
-        '5. When primary recovers, traffic automatically returns'
+        '1. Detect API failures in frontend (e.g., fetch errors or /health)',
+        '2. Update config.json to point to failover API URL (manual) or implement client-side retry list',
+        '3. Resume normal operation using us-east-1 API',
+        '4. Switch back to primary when confirmed healthy'
       ],
-      rto: '2-3 minutes (detection + DNS propagation)',
+      rto: 'Manual: depends on response time to update config.json',
       rpo: '0-15 minutes (S3 replication lag)',
       costPerMonth: '$1 (2 health checks at $0.50 each)'
     },
