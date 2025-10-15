@@ -161,15 +161,15 @@ const Documentation = () => {
         },
         {
           name: 'Health Check Lambda',
-          responsibility: 'Monitor system health for disaster recovery',
+          responsibility: 'Monitor system health for operational visibility',
           steps: [
             'Test Bedrock Knowledge Base connectivity',
             'Verify Lambda execution environment',
             'Check configuration and environment variables',
             'Return health status: healthy (200) or unhealthy (503)'
           ],
-          trigger: 'Route 53 health checks (every 30 seconds)',
-          critical: 'Used by Route 53 for automatic failover to backup region'
+          trigger: 'API Gateway GET /health endpoint',
+          critical: 'Provides real backend health status (not just "Lambda is running")'
         }
       ],
       costComparison: 'Regular server: $50/month 24/7. Lambda: ~$0.20 for 1,000 questions/month'
@@ -347,32 +347,32 @@ const Documentation = () => {
       name: 'Backend API Failover',
       category: 'DR',
       color: '#8C4FFF',
-      shortDesc: 'Manual backend API failover (optional Route 53 setup available)',
-      responsibility: 'Backend API failover requires manual intervention: update config.json to point to the failover API URL, or implement client-side retry logic. Frontend CloudFront failover is automatic (origin-group).',
-      drStrategy: 'Frontend: Automatic (CloudFront origin group). Backend: Manual or custom client-side logic.',
+      shortDesc: 'Manual backend API failover capability',
+      responsibility: 'Backend API failover requires manual intervention: update config.json to point to the failover API URL. Frontend CloudFront failover is automatic (origin-group).',
+      drStrategy: 'Frontend: Automatic (CloudFront origin group). Backend: Manual config.json update.',
       healthChecks: [
         {
           region: 'Primary (us-west-2)',
           endpoint: '/health',
-          status: 'Available for monitoring'
+          status: 'Deployed and operational'
         },
         {
           region: 'Failover (us-east-1)',
           endpoint: '/health',
-          status: 'Available for monitoring'
+          status: 'Deployed and operational'
         }
       ],
-      whatItChecks: 'The /health endpoint tests Bedrock Knowledge Base connectivity. Can be used for manual monitoring or custom client-side failover logic.',
+      whatItChecks: 'The /health endpoint tests actual Bedrock Knowledge Base connectivity, not just Lambda availability.',
       failoverFlow: [
-        '1. Detect API failures (e.g., fetch errors, timeouts, or /health checks)',
-        '2. Option A: Manually update config.json in both S3 frontend buckets to point to failover API URL',
-        '3. Option B: Implement client-side retry logic with fallback API list',
-        '4. Option C: Set up Route 53 DNS failover with health checks (requires custom domain)',
+        '1. Detect primary API failures (manual monitoring or custom alerting)',
+        '2. Update config.json in both S3 frontend buckets to point to failover API URL',
+        '3. Invalidate CloudFront cache: /config.json',
+        '4. Frontend reloads and uses failover API',
         '5. Switch back to primary when confirmed healthy'
       ],
-      rto: 'Manual: minutes to hours (depends on detection + response). Automatic (Route 53): ~2-3 minutes if configured.',
+      rto: 'Manual: minutes to hours (depends on detection and response time)',
       rpo: '0 (stateless API)',
-      costPerMonth: 'Manual: $0. Route 53 (optional): $1/month for 2 health checks'
+      costPerMonth: '$0 (no additional services required for manual failover)'
     },
     {
       id: 'multi-region',
@@ -414,9 +414,8 @@ const Documentation = () => {
     
     // DR costs (optional - for multi-region deployment)
     const drSecondRegion = singleRegionTotal; // Full stack in second region
-    const route53HealthChecks = Number('1.00'); // 2 health checks
     const s3Replication = Number('0.20'); // Cross-region data transfer
-    const drTotal = drSecondRegion + route53HealthChecks + s3Replication;
+    const drTotal = drSecondRegion + s3Replication;
     
     return {
       s3: s3Storage.toFixed(2),

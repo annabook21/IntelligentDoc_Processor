@@ -75,7 +75,7 @@ const FlowDiagram = () => {
       's3-frontend-failover': 'Failover S3 bucket containing React app files in us-east-1 (standby)',
       'apigateway-failover': 'Failover REST API in us-east-1. Receives traffic only if primary region is unhealthy.',
       'lambda-query-failover': 'Failover Query Lambda (us-east-1): Identical to primary, serves requests during outages',
-      'lambda-health-failover': 'Failover Health Lambda (us-east-1): Route 53 monitors this to confirm failover region is ready',
+      'lambda-health-failover': 'Failover Health Lambda (us-east-1): Tests Bedrock KB connectivity in failover region',
       'bedrock-kb-failover': 'Failover Knowledge Base (us-east-1): Contains replicated documents from primary region',
       's3-docs-failover': 'Failover Documents bucket (us-east-1): Receives replicated documents from us-west-2 (15-min lag)',
     };
