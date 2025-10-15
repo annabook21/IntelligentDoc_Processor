@@ -12,35 +12,49 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 - **Pay-per-Use Model**: No upfront costs, only pay for actual usage
 - **Enterprise Security**: Built-in encryption, access controls, and content filtering
 - **Production Ready**: Comprehensive monitoring, error handling, and disaster recovery
-- **Multi-Region DR**: Automatic failover between us-west-2 and us-east-1 with <3 minute RTO
-- **Health Monitoring**: Real-time health checks with Route 53 integration
+- **Multi-Region DR**: 
+  - **Frontend**: CloudFront origin group automatically fails over to us-east-1 on 5xx errors (immediate)
+  - **Backend API**: Route 53 health checks route traffic to us-east-1 in <3 minutes
+- **Always Available**: Even if Oregon (us-west-2) goes offline, users stay online with zero manual intervention
 
 ---
 
 ## 1. Frontend Layer Components
 
-### 1.1 CloudFront Distribution (Global CDN)
+### 1.1 CloudFront Distribution (Global CDN with Automatic Failover)
 
-**Purpose**: Delivers the web application globally with low latency and high performance.
+**Purpose**: Delivers the web application globally with low latency, high performance, and automatic disaster recovery.
 
 **Technical Implementation:**
 - **Edge Locations**: 450+ globally distributed edge locations cache content close to users
 - **HTTPS Enforcement**: Automatic SSL/TLS encryption for all traffic
-- **Origin Access Control (OAC)**: Restricts S3 bucket access exclusively to CloudFront, preventing direct access
-- **Error Handling**: Custom error pages (403/404) redirect to index.html for client-side routing
+- **Origin Access Control (OAC)**: Restricts S3 bucket access exclusively to CloudFront, preventing direct public access
+- **Origin Group Failover**: 
+  - **Primary Origin**: S3 bucket in us-west-2 (Oregon)
+  - **Failover Origin**: S3 bucket in us-east-1 (Virginia)
+  - **Automatic Switchover**: If primary returns 500, 502, 503, or 504 errors, CloudFront instantly retries the failover origin
+  - **Zero Configuration**: Users keep the same URL even during regional outages
+- **SPA Routing Support**: 404 errors redirect to index.html for client-side routing
 - **Caching Strategy**: Static assets (JS, CSS, images) cached with configurable TTL
 
 **Business Value:**
 - Sub-100ms response times globally
 - 99.99% uptime SLA
 - Automatic DDoS protection (AWS Shield Standard included)
+- **Regional Disaster Recovery**: If Oregon fails, CloudFront serves from Virginia automatically
+- **User Experience**: No manual DNS changes, no user-visible downtime
 
-### 1.2 S3 Frontend Bucket (Static Website Hosting)
+### 1.2 S3 Frontend Buckets (Static Website Hosting - Multi-Region)
 
-**Purpose**: Hosts the compiled React application and runtime configuration.
+**Purpose**: Hosts the compiled React application and runtime configuration in both primary and failover regions.
 
 **Technical Implementation:**
-- **Bucket Policy**: Restricts access to CloudFront OAC only (zero public access)
+- **Two Buckets Deployed**:
+  - **Primary**: `chatbox-frontend-{account}-us-west-2`
+  - **Failover**: `chatbox-frontend-{account}-us-east-1`
+- **Bucket Policy**: Both buckets restrict access to CloudFront OAC only (zero public access)
+- **Cross-Account CloudFront Access**: Bucket policies allow any CloudFront distribution in your AWS account to read objects
+- **Identical Content**: Both buckets contain the same frontend build
 - **Auto-Configuration**: CDK automatically injects API Gateway URL into config.json at deployment
 - **Content Structure**:
   ```
@@ -54,7 +68,8 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 **Business Value:**
 - No server management or patching required
 - Automatic scaling to handle traffic spikes
-- Extremely low cost (typically $0.01-0.50/month for low traffic)
+- Extremely low cost (typically $0.02-1.00/month for two regions with low traffic)
+- **Disaster Recovery**: If primary region fails, CloudFront serves from failover bucket automatically
 
 ### 1.3 React Application (User Interface)
 
@@ -87,10 +102,11 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 | `/docs` | POST | Submit user query | Query Lambda |
 | `/upload` | POST | Generate pre-signed S3 URL | Upload Lambda |
 | `/ingestion-status` | GET | Check document processing status | Status Lambda |
-| `/health` | GET | System health check for DR monitoring | Health Lambda |
+| `/health` | GET | Backend API health check for Route 53 DR monitoring | Health Lambda |
 
 **Configuration:**
 - **CORS**: Enabled for cross-origin requests from CloudFront domain
+- **Multi-Region Deployment**: Identical API deployed in us-west-2 (primary) and us-east-1 (failover)
 - **Usage Plan**: 100 requests/second rate limit, 200 burst capacity
 - **Throttling**: Protects backend from abuse and controls costs
 - **CloudWatch Logging**: Full request/response logging for debugging
@@ -206,6 +222,21 @@ The AWS Contextual Chatbot is a production-ready, enterprise-grade Retrieval-Aug
 - **IN_PROGRESS**: Document being processed and vectorized
 - **COMPLETE**: Vectors stored in OpenSearch, ready for queries
 - **FAILED**: Processing error (check logs for details)
+
+### 3.5 Health Lambda (`health-check`)
+
+**Purpose**: Enables backend API disaster recovery through Route 53 health checks.
+
+**Execution Flow:**
+1. Route 53 calls `/health` endpoint every 30 seconds
+2. Lambda verifies Bedrock Knowledge Base connectivity
+3. Returns HTTP 200 if healthy, 5xx if unhealthy
+4. After 3 consecutive failures (90 seconds), Route 53 routes traffic to failover region
+
+**Business Value:**
+- **Automatic Failover**: No manual intervention needed during regional outages
+- **True Health Check**: Verifies actual backend functionality, not just "Lambda is running"
+- **Fast Detection**: 90-second detection window
 
 ---
 
@@ -490,22 +521,44 @@ Permissions:
 
 ## 9. Disaster Recovery & High Availability
 
-### 9.1 Backup Strategy
+### 9.1 Multi-Region Architecture (Active-Passive)
 
-- **S3 Versioning**: All document versions retained
+**Deployed Regions:**
+- **Primary (us-west-2)**: Oregon - Handles all traffic under normal conditions
+- **Failover (us-east-1)**: Virginia - Standby region, activates automatically during outages
+
+**Frontend DR (CloudFront Origin Failover):**
+- **Method**: CloudFront origin group with automatic failover
+- **Detection**: Instant (5xx errors from primary S3 bucket)
+- **Switchover**: Immediate retry to failover S3 bucket
+- **RTO**: < 1 second
+- **User Impact**: None (same CloudFront URL)
+
+**Backend DR (Route 53 Health Checks):**
+- **Method**: Route 53 DNS failover based on /health endpoint monitoring
+- **Detection**: 90 seconds (3 consecutive failed health checks)
+- **Switchover**: DNS update to failover API Gateway
+- **RTO**: 2-3 minutes (includes DNS propagation)
+- **User Impact**: Minimal (automatic retry in frontend)
+
+**Document Sync:**
+- **Method**: S3 Cross-Region Replication (CRR)
+- **RPO**: ~15 minutes (automatic background sync)
+- **What Syncs**: Documents bucket from us-west-2 → us-east-1
+- **Why**: Ensures failover Knowledge Base has same documents
+
+### 9.2 Backup Strategy
+
+- **S3 Versioning**: All document versions retained indefinitely
 - **OpenSearch Snapshots**: Bedrock manages automatically
-- **Infrastructure as Code**: Full stack reproducible via CDK
+- **Infrastructure as Code**: Full stack reproducible via CDK in minutes
+- **Multi-Region Deployment**: One command deploys both regions: `cdk deploy --all`
 
-**Recovery Time Objective (RTO)**: < 1 hour
-**Recovery Point Objective (RPO)**: < 5 minutes (S3 versioning)
-
-### 9.2 Multi-Region Considerations
-
-**Current**: Single region deployment
-**Future Enhancement**: 
-- Cross-region S3 replication
-- Multi-region Knowledge Base (when supported)
-- CloudFront already global (no change needed)
+**Business Value:**
+- **Zero Downtime**: Regional failures don't impact users
+- **No Manual Intervention**: All failover is automatic
+- **Cost-Effective DR**: Standby resources only cost ~$10-20/month extra
+- **Peace of Mind**: Sleep well knowing your app survives data center failures
 
 ---
 
@@ -551,11 +604,16 @@ cdk bootstrap aws://$ACCOUNT/us-east-1
 cdk deploy --all  # 15-20 minutes
 ```
 
+**What Gets Deployed:**
+- **Primary Region (us-west-2)**: Full backend stack + CloudFront distribution + frontend S3 bucket
+- **Failover Region (us-east-1)**: Full backend stack + frontend S3 bucket
+
 **Post-Deployment:**
-1. Note CloudFront URL from CDK outputs
-2. Verify Bedrock model access in console
+1. Note CloudFront URL from CDK outputs (Primary stack only)
+2. Verify Bedrock model access in console (both regions)
 3. Upload test document
 4. Run sample queries
+5. Test failover (optional): Temporarily disable primary region resources
 
 ---
 
