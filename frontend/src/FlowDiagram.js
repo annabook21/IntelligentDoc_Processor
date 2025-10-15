@@ -232,7 +232,7 @@ const FlowDiagram = () => {
       <div className="diagram-legend">
         <h4>💡 Multi-Region DR Architecture: Primary (us-west-2) + Failover (us-east-1)</h4>
         <p style={{fontSize: '12px', marginTop: '5px', marginBottom: '10px'}}>
-          Route 53 monitors health endpoints. If primary fails for 90+ seconds, all traffic routes to failover.
+          Frontend: CloudFront origin group serves from S3 (W2) and fails over to S3 (E1) on 5xx. Backend: Route 53 monitors /health and routes API traffic to the healthy region.
         </p>
         <div className="legend-items">
           <div className="legend-item">
