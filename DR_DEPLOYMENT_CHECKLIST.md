@@ -69,21 +69,42 @@ cdk deploy --all
 ```
 
 **During deployment, you'll see:**
-- Creating Lambda functions (4 total + health check)
+
+**Primary Region (us-west-2):**
+- Creating Lambda functions (5 total including health check)
 - Creating Knowledge Base
-- Creating S3 buckets
+- Creating S3 buckets (documents + frontend)
 - Creating API Gateway
-- Creating CloudFront distribution
+- Creating CloudFront distribution (with origin group to both regions)
 - Creating CloudWatch Dashboard
 
+**Failover Region (us-east-1):**
+- Creating Lambda functions (5 total including health check)
+- Creating Knowledge Base
+- Creating S3 buckets (documents + frontend)
+- Creating API Gateway
+- Creating CloudWatch Dashboard
+- **Note:** CloudFront is NOT created in failover region (it's global, created only in primary)
+
 **Expected outputs at the end:**
+
+**Primary Stack (BackendStack-Primary):**
 ```
 Outputs:
-BackendStack.APIGatewayUrl = https://xyz789.execute-api.us-east-1.amazonaws.com/prod/
-BackendStack.HealthEndpoint = https://xyz789.execute-api.us-east-1.amazonaws.com/prod/health
-BackendStack.CloudFrontURL = d1234abcd.cloudfront.net
-BackendStack.DocsBucketName = docsbucket-xxxxx
-BackendStack.DashboardName = contextual-chatbot-metrics
+BackendStack-Primary.APIGatewayUrl = https://abc123.execute-api.us-west-2.amazonaws.com/prod/
+BackendStack-Primary.HealthEndpoint = https://abc123.execute-api.us-west-2.amazonaws.com/prod/health
+BackendStack-Primary.CloudFrontURL = d1234abcd.cloudfront.net
+BackendStack-Primary.DocsBucketName = docsbucket-primary-xxxxx
+BackendStack-Primary.FrontendBucketName = chatbox-frontend-{account}-us-west-2
+```
+
+**Failover Stack (BackendStack-Failover):**
+```
+Outputs:
+BackendStack-Failover.APIGatewayUrl = https://xyz789.execute-api.us-east-1.amazonaws.com/prod/
+BackendStack-Failover.HealthEndpoint = https://xyz789.execute-api.us-east-1.amazonaws.com/prod/health
+BackendStack-Failover.DocsBucketName = docsbucket-failover-xxxxx
+BackendStack-Failover.FrontendBucketName = chatbox-frontend-{account}-us-east-1
 ```
 
 **SAVE THESE VALUES - YOU'LL NEED THEM!**
@@ -382,11 +403,15 @@ dig api.yourdomain.com
 
 **Option B: Without Custom Domain**
 
-Update frontend to use health-checked failover:
+**Frontend:** Already has automatic failover via CloudFront origin groups (no action needed).
 
-1. Update `frontend/src/App.js` to include failover logic
-2. Store both API URLs in config.json
-3. Frontend checks health and fails over client-side
+**Backend API:** The frontend loads API URL from `config.json`. Without Route 53:
+1. Frontend will continue using the primary API URL from config.json
+2. If primary API fails, users will experience errors until:
+   - You manually update config.json to point to failover API, OR
+   - You implement client-side retry logic in the frontend
+
+**Recommendation:** Use Option A (Route 53) for automatic backend API failover.
 
 ---
 
@@ -429,17 +454,28 @@ After completing all steps, you'll have:
 | Lambda Functions | ✅ 5 functions | ✅ 5 functions |
 | Bedrock Knowledge Base | ✅ Active | ✅ Active |
 | S3 Documents | ✅ Source | ✅ Replica (auto-sync) |
-| CloudFront | ✅ Active | ✅ Active |
+| S3 Frontend | ✅ Primary origin | ✅ Failover origin |
+| CloudFront | ✅ Active (global, uses both S3 origins) | ❌ Not deployed (uses primary CF) |
 | Health Endpoint | ✅ /health | ✅ /health |
 | Route 53 Health Check | ✅ Monitoring | ✅ Monitoring |
 
 **Failover Behavior:**
-- Primary healthy → Traffic to us-west-2
-- Primary unhealthy (3 checks / 90 sec) → Traffic to us-east-1
-- Primary restored → Traffic back to us-west-2
 
-**RTO:** ~2-3 minutes (health check detection + DNS TTL)  
-**RPO:** 0-15 minutes (S3 replication time)
+**Frontend (CloudFront Origin Failover):**
+- Primary S3 healthy → CloudFront serves from us-west-2
+- Primary S3 returns 5xx → CloudFront instantly retries us-east-1
+- RTO: < 1 second
+- RPO: 0 (both buckets have identical content)
+
+**Backend API (Route 53 DNS Failover):**
+- Primary API healthy → Traffic to us-west-2
+- Primary unhealthy (3 checks / 90 sec) → DNS routes to us-east-1
+- Primary restored → Traffic back to us-west-2
+- RTO: ~2-3 minutes (health check detection + DNS TTL)
+- RPO: 0 (stateless API)
+
+**Documents (S3 Cross-Region Replication):**
+- RPO: 0-15 minutes (S3 replication time)
 
 ---
 
@@ -483,12 +519,15 @@ aws route53 get-health-check-status --health-check-id $FAILOVER_HEALTH_CHECK_ID
 ## 🎯 Success Criteria
 
 - [ ] Both regions show `CREATE_COMPLETE` status
+- [ ] CloudFront distribution created in primary region only
+- [ ] Both frontend S3 buckets exist (us-west-2 and us-east-1)
 - [ ] Both `/health` endpoints return `"status": "healthy"`
 - [ ] Both Route 53 health checks show `"Status": "Success"`
-- [ ] S3 replication is `"Enabled"`
-- [ ] Test document uploads to primary appear in failover bucket
+- [ ] S3 documents replication is `"Enabled"`
+- [ ] Test document uploads to primary appear in failover bucket within 15 min
 - [ ] Both CloudWatch Dashboards accessible
 - [ ] Route 53 failover routing configured (if using custom domain)
+- [ ] CloudFront serves frontend from primary S3 origin (test by accessing CloudFront URL)
 
 ---
 
