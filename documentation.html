@@ -462,6 +462,8 @@ graph TB
                 This design implements a two-step RAG pattern where context retrieval and generation are separated, 
                 enabling the use of Bedrock Guardrails for responsible AI enforcement—something not possible with 
                 the combined RetrieveAndGenerate API.
+                <br/><br/>
+                <strong>Frontend Availability:</strong> CloudFront uses <em>Origin Access Control (OAC)</em> with two <em>private S3 REST origins</em> (primary in us-west-2, failover in us-east-1). An <em>origin group</em> triggers failover on 5xx without DNS changes. SPA routing maps 404 → index.html.
             </div>
         </div>
 

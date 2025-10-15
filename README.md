@@ -81,8 +81,8 @@ graph TD
 
 ### 1. Frontend
 
-- **CloudFront Distribution (`AWS::CloudFront::Distribution`):** Acts as the primary entry point for users. It serves the frontend application's static files from the S3 bucket and provides caching and HTTPS.
-- **Frontend S3 Bucket (`AWS::S3::Bucket`):** A private S3 bucket that stores the built React application (HTML, CSS, JS). Access is restricted to CloudFront via Origin Access Control (OAC).
+- **CloudFront Distribution (`AWS::CloudFront::Distribution`):** Global CDN entry point serving the React app from two private S3 REST origins via OAC. Uses an origin group to fail over from the primary S3 origin (us-west-2) to the failover S3 origin (us-east-1) on 5xx.
+- **Frontend S3 Buckets (`AWS::S3::Bucket`):** Private buckets (in each region) that store static assets. Access is restricted to CloudFront via Origin Access Control (OAC). No website endpoints or public access are used.
 
 ### 2. API Gateway
 
@@ -138,12 +138,11 @@ graph TD
 
 ### 7. Disaster Recovery & High Availability
 
-- **Route 53 Health Checks (`AWS::Route53::HealthCheck`):** Monitors the `/health` endpoint in both regions every 30 seconds. Automatic failover after 3 consecutive failures (90 seconds).
-- **Multi-Region Deployment:** Full stack can be deployed to both us-west-2 (primary) and us-east-1 (failover) using automated scripts.
-- **Cross-Region Replication:** S3 documents can be automatically replicated from primary to failover region with 15-minute SLA.
+- **Frontend Failover (CloudFront Origin Group):** Frontend remains on a single CloudFront URL. If the primary S3 origin (us-west-2) returns 5xx, CloudFront automatically retries against the failover S3 origin (us-east-1) and serves content without DNS changes.
+- **Backend Failover (Route 53 Health Checks):** API failover continues to use Route 53 health checks over the `/health` endpoint, switching API traffic between regions.
 - **Recovery Objectives:**
-  - **RTO (Recovery Time Objective):** ~2-3 minutes (automatic failover via Route 53)
-  - **RPO (Recovery Point Objective):** 0-15 minutes (S3 replication time)
+  - **RTO:** ~2-3 minutes for API via Route 53; frontend failover occurs per-request via CloudFront when 5xx occurs
+  - **RPO:** 0-15 minutes (S3 replication time)
 
 ---
 
