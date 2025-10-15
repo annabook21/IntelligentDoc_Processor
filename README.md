@@ -22,19 +22,20 @@ Click "Save changes" and wait for access to be granted before proceeding with de
 
 ## Architecture
 
-The architecture is fully serverless, event-driven, and **multi-region with CloudFront origin failover**:
+The architecture is fully serverless, event-driven, and **multi-region with automatic failover**:
 
 ```mermaid
 graph TD
-    subgraph "CloudFront Origin Failover"
-        User[<fa:fa-user> User] -->|1. HTTPS Request| CF[<fa:fa-cloud> CloudFront Distribution<br/>Primary Region]
-        CF -->|Primary Origin| FE_S3_1[<fa:fa-box> Frontend S3<br/>us-west-2 Private]
-        CF -.->|Failover on 5xx| FE_S3_2[<fa:fa-box> Frontend S3<br/>us-east-1 Website]
-        
-        Note1[Origin Group:<br/>Primary: S3 OAC us-west-2<br/>Secondary: S3 Website us-east-1<br/>Failover: 500/502/503/504]
+    subgraph "Global Traffic Management"
+        User[<fa:fa-user> User] -->|1. DNS Lookup| R53[<fa:fa-globe> Route 53]
+        R53 -->|Health Check: /health endpoint| HC[<fa:fa-heartbeat> Health Checks]
+        R53 -->|Routes to healthy region| Regions
     end
 
     subgraph "Primary Region - us-west-2"
+        Regions -->|2. Accesses UI| FE_CF1[<fa:fa-cloud> CloudFront]
+        FE_CF1 -->|Serves static| FE_S3_1[<fa:fa-box> Frontend S3]
+        
         User -->|3. API Requests| APIGW1[<fa:fa-server> API Gateway]
         APIGW1 -->|/docs| QueryLambda1[<fa:fa-bolt> Query Lambda]
         APIGW1 -->|/upload| UploadLambda1[<fa:fa-bolt> Upload Lambda]
@@ -44,15 +45,20 @@ graph TD
         QueryLambda1 -->|Retrieve & Generate| BedrockKB1[<fa:fa-brain> Bedrock KB]
         DS_S3_1[<fa:fa-box> Docs S3] -->|ObjectCreated| IngestLambda1[<fa:fa-bolt> Ingest Lambda]
         IngestLambda1 -->|Start Job| BedrockKB1
+        
+        DS_S3_1 -.->|Cross-Region Replication| DS_S3_2
     end
 
     subgraph "Failover Region - us-east-1"
-        User -.->|Manual failover| APIGW2[<fa:fa-server> API Gateway]
+        Regions -->|Failover route| FE_CF2[<fa:fa-cloud> CloudFront]
+        FE_CF2 -->|Serves static| FE_S3_2[<fa:fa-box> Frontend S3]
+        
+        User -.->|If primary down| APIGW2[<fa:fa-server> API Gateway]
         APIGW2 -.->|/docs| QueryLambda2[<fa:fa-bolt> Query Lambda]
         APIGW2 -.->|/health| HealthLambda2[<fa:fa-heartbeat> Health Lambda]
         
         QueryLambda2 -.->|Retrieve & Generate| BedrockKB2[<fa:fa-brain> Bedrock KB]
-        DS_S3_2[<fa:fa-box> Docs S3]
+        DS_S3_2[<fa:fa-box> Docs S3 Replica]
     end
 
     subgraph "Monitoring & Observability"
@@ -64,8 +70,8 @@ graph TD
     end
 
     style User fill:#f9f,stroke:#333,stroke-width:2px
-    style CF fill:#8C4FFF,stroke:#333,stroke-width:2px
-    style Note1 fill:#FFE5B4,stroke:#333,stroke-width:1px
+    style R53 fill:#8C4FFF,stroke:#333,stroke-width:2px
+    style HC fill:#01A88D,stroke:#333,stroke-width:2px
     style CW fill:#FF9900,stroke:#333,stroke-width:2px
 ```
 
@@ -73,17 +79,10 @@ graph TD
 
 ## Core Components
 
-### 1. Frontend with CloudFront Origin Failover
+### 1. Frontend
 
-- **CloudFront Distribution (`AWS::CloudFront::Distribution`):** Acts as the primary entry point for users. It serves the frontend application's static files using an **Origin Group** for automatic failover:
-  - **Primary Origin:** S3 bucket in us-west-2 (private, secured with Origin Access Control)
-  - **Secondary Origin:** S3 bucket in us-east-1 (public website endpoint)
-  - **Failover Criteria:** Automatically fails over when primary returns 500, 502, 503, or 504 errors
-  - **Connection Settings:** 1 connection attempt, 2-second timeout for fast failover
-  - **Recovery:** Automatic - CloudFront retries primary on next request after recovery
-- **Frontend S3 Buckets (`AWS::S3::Bucket`):** 
-  - **Primary (us-west-2):** Private bucket with OAC, served via CloudFront REST API endpoint
-  - **Failover (us-east-1):** Public website endpoint bucket, served via HTTP origin
+- **CloudFront Distribution (`AWS::CloudFront::Distribution`):** Acts as the primary entry point for users. It serves the frontend application's static files from the S3 bucket and provides caching and HTTPS.
+- **Frontend S3 Bucket (`AWS::S3::Bucket`):** A private S3 bucket that stores the built React application (HTML, CSS, JS). Access is restricted to CloudFront via Origin Access Control (OAC).
 
 ### 2. API Gateway
 
@@ -167,16 +166,12 @@ cdk deploy --all
 ```
 
 This deployment:
-- ✅ Creates `BackendStack-Primary` in us-west-2 with CloudFront origin failover
-- ✅ Creates `BackendStack-Failover` in us-east-1 with independent API and frontend
-- ✅ CloudFront automatically fails over frontend between regions on 5xx errors
+- ✅ Creates `BackendStack-Primary` in us-west-2
+- ✅ Creates `BackendStack-Failover` in us-east-1
+- ✅ Includes Route 53 health checks for automatic failover
 - ✅ Both stacks are identical and production-ready
 
-**Failover Strategy:**
-- **Frontend:** Automatic via CloudFront Origin Groups (no custom domain required)
-- **API:** Manual failover - update frontend config.json to point to failover API endpoint
-
-**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for complete DR details and Route 53 alternative approach.**
+**See [DISASTER_RECOVERY_SETUP.md](DISASTER_RECOVERY_SETUP.md) for complete DR details.**
 
 ---
 

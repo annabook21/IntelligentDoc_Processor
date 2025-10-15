@@ -561,33 +561,48 @@ export class BackendStack extends Stack {
     const isPrimaryRegion = Stack.of(this).region === primaryRegion;
     const accountId = Stack.of(this).account;
 
-    // Deterministic bucket name per region so we can reference cross-region website endpoint
+    // Deterministic bucket name per region
     const frontendBucketName = `chatbox-frontend-${accountId}-${Stack.of(this).region}`;
 
-    // S3 bucket for the frontend app
+    // S3 bucket for the frontend app (private, REST origin only)
     const frontendBucket = new s3.Bucket(this, "FrontendBucket", {
       bucketName: frontendBucketName,
-      websiteIndexDocument: "index.html",
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
-      // In primary region keep bucket private (CloudFront OAC). In failover region host via website endpoint (public read via bucket policy).
-      blockPublicAccess: isPrimaryRegion ? s3.BlockPublicAccess.BLOCK_ALL : s3.BlockPublicAccess.BLOCK_ACLS,
-      publicReadAccess: !isPrimaryRegion,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
     });
+
+    // Allow CloudFront (any distribution in this account) to read objects via OAC
+    frontendBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+        actions: ['s3:GetObject'],
+        resources: [frontendBucket.arnForObjects('*')],
+        conditions: {
+          StringLike: {
+            'AWS:SourceArn': `arn:aws:cloudfront::${accountId}:distribution/*`,
+          },
+        },
+      })
+    );
 
     // CloudFront distribution (only in primary region) with origin failover to the failover region's website endpoint
     let distribution: cloudfront.Distribution | undefined;
     if (isPrimaryRegion) {
       const primaryOrigin = origins.S3BucketOrigin.withOriginAccessControl(frontendBucket);
 
-      // Failover origin: S3 static website endpoint in the failover region
+      // Failover origin: S3 REST origin (private) in the failover region
       const failoverBucketName = `chatbox-frontend-${accountId}-${failoverRegion}`;
-      const failoverWebsiteDomain = `${failoverBucketName}.s3-website-${failoverRegion}.amazonaws.com`;
-      const secondaryOrigin = new origins.HttpOrigin(failoverWebsiteDomain, {
-        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
-        connectionAttempts: 1,
-        connectionTimeout: Duration.seconds(2),
-      });
+      const failoverBucketImported = s3.Bucket.fromBucketName(
+        this,
+        'FailoverFrontendBucketImport',
+        failoverBucketName
+      );
+      const secondaryOrigin = origins.S3BucketOrigin.withOriginAccessControl(
+        failoverBucketImported
+      );
 
       const originGroup = new origins.OriginGroup({
         primaryOrigin,
@@ -603,12 +618,6 @@ export class BackendStack extends Stack {
         },
         defaultRootObject: "index.html",
         errorResponses: [
-          {
-            httpStatus: 403,
-            responseHttpStatus: 200,
-            responsePagePath: "/index.html",
-            ttl: Duration.minutes(5),
-          },
           {
             httpStatus: 404,
             responseHttpStatus: 200,

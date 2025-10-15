@@ -89,28 +89,13 @@ Answer based ONLY on the context above:`;
       }
 
       // 5. Guardrail passed! NOW extract the citation
-      // BUT: Don't show citation if the LLM says it doesn't have the information
-      const responseText = responseBody.content[0].text;
-      
       let citation = null;
-      const noInfoPhrases = [
-        "I don't have that information",
-        "I don't have enough information",
-        "I don't have information",
-        "I cannot find",
-        "not provided in the context",
-        "context doesn't contain",
-        "no information about"
-      ];
-      
-      const responseContainsNoInfo = noInfoPhrases.some(phrase => 
-        responseText.toLowerCase().includes(phrase.toLowerCase())
-      );
-      
-      // Only include citation if response has actual information
-      if (!responseContainsNoInfo && retrievalResponse.retrievalResults && retrievalResponse.retrievalResults.length > 0) {
+      if (retrievalResponse.retrievalResults && retrievalResponse.retrievalResults.length > 0) {
         citation = retrievalResponse.retrievalResults[0].location?.s3Location?.uri || null;
       }
+
+      // Extract the response text from the Messages API format
+      const responseText = responseBody.content[0].text;
 
       return makeResults(200, responseText, citation, null);
       
