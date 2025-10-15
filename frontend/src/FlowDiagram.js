@@ -10,9 +10,11 @@ const FlowDiagram = () => {
     { id: 'user', label: '👤 User', x: 50, y: 50, category: 'external', color: '#8C4FFF' },
     { id: 'route53', label: '🌐 Route 53', x: 200, y: 50, category: 'dr', color: '#8C4FFF' },
     
-    // Primary Region (us-west-2)
-    { id: 'cloudfront-primary', label: '☁️ CF Primary', x: 350, y: 120, category: 'cdn', color: '#569A31' },
+    // Frontend CDN (single distribution with origin failover)
+    { id: 'cloudfront', label: '☁️ CloudFront', x: 350, y: 120, category: 'cdn', color: '#569A31' },
     { id: 's3-frontend-primary', label: '💾 S3 FE (W2)', x: 500, y: 120, category: 'storage', color: '#569A31' },
+    
+    // Primary Region (us-west-2)
     { id: 'apigateway-primary', label: '🔌 API GW (W2)', x: 350, y: 220, category: 'api', color: '#FF4F8B' },
     { id: 'lambda-query-primary', label: '⚡ Query (W2)', x: 500, y: 220, category: 'compute', color: '#FF9900' },
     { id: 'lambda-health-primary', label: '💚 Health (W2)', x: 350, y: 320, category: 'compute', color: '#FF9900' },
@@ -20,8 +22,7 @@ const FlowDiagram = () => {
     { id: 's3-docs-primary', label: '💾 Docs (W2)', x: 500, y: 380, category: 'storage', color: '#569A31' },
     
     // Failover Region (us-east-1)
-    { id: 'cloudfront-failover', label: '☁️ CF Failover', x: 350, y: 480, category: 'cdn', color: '#569A31' },
-    { id: 's3-frontend-failover', label: '💾 S3 FE (E1)', x: 500, y: 480, category: 'storage', color: '#569A31' },
+    { id: 's3-frontend-failover', label: '💾 S3 FE (E1)', x: 500, y: 180, category: 'storage', color: '#569A31' },
     { id: 'apigateway-failover', label: '🔌 API GW (E1)', x: 350, y: 580, category: 'api', color: '#FF4F8B' },
     { id: 'lambda-query-failover', label: '⚡ Query (E1)', x: 500, y: 580, category: 'compute', color: '#FF9900' },
     { id: 'lambda-health-failover', label: '💚 Health (E1)', x: 350, y: 680, category: 'compute', color: '#FF9900' },
@@ -31,16 +32,16 @@ const FlowDiagram = () => {
 
   const connections = [
     // Global Traffic Management
-    { from: 'user', to: 'route53', type: 'dns', label: 'DNS Lookup' },
-    { from: 'route53', to: 'cloudfront-primary', type: 'route', label: 'Route to Primary' },
-    { from: 'route53', to: 'cloudfront-failover', type: 'failover', label: 'Failover Route' },
+    { from: 'user', to: 'cloudfront', type: 'https', label: 'HTTPS' },
     
-    // Route 53 Health Checks
+    // Route 53 Health Checks (backend only)
     { from: 'route53', to: 'lambda-health-primary', type: 'health', label: 'Health Check /health' },
     { from: 'route53', to: 'lambda-health-failover', type: 'health', label: 'Health Check /health' },
     
     // Primary Region - Frontend Flow
-    { from: 'cloudfront-primary', to: 's3-frontend-primary', type: 'fetch', label: 'Serve Assets' },
+    { from: 'cloudfront', to: 's3-frontend-primary', type: 'fetch', label: 'Serve Assets (primary)' },
+    // Frontend - Failover Origin (on 5xx)
+    { from: 'cloudfront', to: 's3-frontend-failover', type: 'fetch', label: 'Serve Assets (failover on 5xx)' },
     
     // Primary Region - Query Flow  
     { from: 'user', to: 'apigateway-primary', type: 'api', label: 'POST /docs' },
@@ -50,9 +51,6 @@ const FlowDiagram = () => {
     
     // Primary Region - Data Storage & Replication
     { from: 's3-docs-primary', to: 's3-docs-failover', type: 'replicate', label: 'Cross-Region Replication' },
-    
-    // Failover Region - Frontend Flow
-    { from: 'cloudfront-failover', to: 's3-frontend-failover', type: 'fetch', label: 'Serve Assets' },
     
     // Failover Region - Query Flow (Standby)
     { from: 'user', to: 'apigateway-failover', type: 'failover-api', label: 'POST /docs (if primary down)' },
@@ -64,10 +62,10 @@ const FlowDiagram = () => {
   const getNodeDescription = (nodeId) => {
     const descriptions = {
       'user': 'End users accessing the chatbot through their web browser from anywhere in the world',
-      'route53': 'DNS service that routes traffic to healthy region. Monitors /health endpoints every 30 seconds and automatically fails over if primary is down for 90 seconds.',
+      'route53': 'DNS service for backend DR only. Monitors /health endpoints and fails over API traffic if primary is down.',
       
       // Primary Region
-      'cloudfront-primary': 'Primary CDN in us-west-2 delivering static website files with global caching',
+      'cloudfront': 'Global CDN with origin group: serves from S3 (W2) and fails over to S3 (E1) on 5xx',
       's3-frontend-primary': 'Primary S3 bucket containing React app files (HTML, JS, CSS) in us-west-2',
       'apigateway-primary': 'Primary REST API in us-west-2 with endpoints: /docs, /upload, /ingestion-status, /health',
       'lambda-query-primary': 'Primary Query Lambda (us-west-2): Retrieve from KB → Apply guardrails → Generate answer with Claude',
@@ -76,7 +74,6 @@ const FlowDiagram = () => {
       's3-docs-primary': 'Primary Documents bucket (us-west-2): Stores uploads, triggers ingestion, replicates to us-east-1',
       
       // Failover Region
-      'cloudfront-failover': 'Failover CDN in us-east-1. Activated by Route 53 when primary region fails.',
       's3-frontend-failover': 'Failover S3 bucket containing React app files in us-east-1 (standby)',
       'apigateway-failover': 'Failover REST API in us-east-1. Receives traffic only if primary region is unhealthy.',
       'lambda-query-failover': 'Failover Query Lambda (us-east-1): Identical to primary, serves requests during outages',
