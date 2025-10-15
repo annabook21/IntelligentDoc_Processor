@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600">
+  <defs>
+    <style>
+      .title { font: 700 22px sans-serif; fill: #232F3E; }
+      .label { font: 600 16px sans-serif; fill: #232F3E; }
+      .small { font: 12px sans-serif; fill: #232F3E; }
+      .box { fill: #FFFFFF; stroke: #707070; stroke-width: 2; rx: 8; }
+      .edge { stroke: #666; stroke-width: 2; marker-end: url(#arrow); fill: none; }
+      .note { fill: #F6F6F6; stroke: #CCCCCC; stroke-width: 1; rx: 6; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#666" />
+    </marker>
+  </defs>
+
+  <rect x="20" y="20" width="1060" height="560" fill="#fff" stroke="#e0e0e0"/>
+  <text x="40" y="60" class="title">CloudFront Origin-Group Failover (Frontend)</text>
+
+  <!-- CloudFront -->
+  <rect x="430" y="90" width="240" height="80" class="box"/>
+  <text x="550" y="120" class="label" text-anchor="middle">CloudFront (Global)</text>
+  <text x="550" y="145" class="small" text-anchor="middle">ViewerProtocol: HTTPS | OAC → S3 (private)</text>
+
+  <!-- Origin Group Note -->
+  <rect x="350" y="185" width="400" height="60" class="note"/>
+  <text x="550" y="210" class="small" text-anchor="middle">Origin Group: Primary → Failover on 5xx (500, 502, 503, 504)</text>
+
+  <!-- Primary S3 -->
+  <rect x="140" y="300" width="360" height="90" class="box"/>
+  <text x="320" y="330" class="label" text-anchor="middle">S3 Frontend (Primary)</text>
+  <text x="320" y="355" class="small" text-anchor="middle">Bucket: chatbox-frontend-{account}-us-west-2</text>
+  <text x="320" y="375" class="small" text-anchor="middle">Access: Private via CloudFront OAC</text>
+
+  <!-- Failover S3 -->
+  <rect x="600" y="300" width="360" height="90" class="box"/>
+  <text x="780" y="330" class="label" text-anchor="middle">S3 Frontend (Failover)</text>
+  <text x="780" y="355" class="small" text-anchor="middle">Bucket: chatbox-frontend-{account}-us-east-1</text>
+  <text x="780" y="375" class="small" text-anchor="middle">Access: Private via CloudFront OAC</text>
+
+  <!-- Edges from CF to origins -->
+  <path class="edge" d="M550,170 C 480,210 420,250 320,300"/>
+  <path class="edge" d="M550,170 C 620,210 680,250 780,300"/>
+
+  <!-- OAC policy note -->
+  <rect x="200" y="420" width="700" height="90" class="note"/>
+  <text x="550" y="450" class="small" text-anchor="middle">Bucket Policy: Allow s3:GetObject for principal cloudfront.amazonaws.com with</text>
+  <text x="550" y="470" class="small" text-anchor="middle">Condition StringLike: AWS:SourceArn = arn:aws:cloudfront::{account}:distribution/*</text>
+
+  <!-- SPA routing note -->
+  <text x="550" y="525" class="small" text-anchor="middle">SPA Routing: 404 → /index.html (only 404 mapped)</text>
+</svg>
+
+
