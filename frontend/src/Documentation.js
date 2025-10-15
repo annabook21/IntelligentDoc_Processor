@@ -347,8 +347,8 @@ const Documentation = () => {
       name: 'Route 53 Health Checks',
       category: 'DR',
       color: '#8C4FFF',
-      shortDesc: 'Automatic failover monitoring and traffic routing',
-      responsibility: 'Monitor both regions and automatically route traffic to healthy endpoints',
+      shortDesc: 'Backend API health checks and DNS failover (API only)',
+      responsibility: 'Monitor backend health and automatically route API traffic to the healthy region. Frontend uses CloudFront origin-group failover (no DNS change).',
       drStrategy: 'Active-Passive with automatic failover',
       healthChecks: [
         {
@@ -389,18 +389,18 @@ const Documentation = () => {
         {
           name: 'Primary: us-west-2 (Oregon)',
           purpose: 'Handles all traffic under normal conditions',
-          components: 'Full stack: API Gateway, 5 Lambdas, Bedrock KB, S3, CloudFront'
+          components: 'Frontend origin: S3 (W2) behind a single global CloudFront distribution; Backend: API Gateway, 5 Lambdas, Bedrock KB, S3'
         },
         {
           name: 'Failover: us-east-1 (N. Virginia)',
           purpose: 'Standby region that activates if primary fails',
-          components: 'Identical stack: API Gateway, 5 Lambdas, Bedrock KB, S3, CloudFront'
+          components: 'Frontend origin: S3 (E1) as CloudFront failover origin; Backend: API Gateway, 5 Lambdas, Bedrock KB, S3'
         }
       ],
       dataSync: 'S3 Cross-Region Replication ensures documents uploaded to primary are automatically copied to failover (15-minute SLA)',
-      realDeployment: 'Both regions are FULLY deployed with real resources, not placeholders. Each region can independently serve all requests.',
+      realDeployment: 'Both regions deploy full backend stacks. Frontend uses a single global CloudFront distribution with origin failover (S3 W2 → S3 E1 on 5xx).',
       automatedSetup: 'Single CDK command deploys to both regions: cd backend && cdk deploy --all',
-      businessValue: 'If Oregon data center fails, application automatically switches to Virginia in under 3 minutes with zero manual intervention.'
+      businessValue: 'If Oregon fails: Frontend fails over at CloudFront immediately on 5xx; backend API routes via Route 53 within ~2–3 minutes.'
     }
   ];
 
