@@ -1,0 +1,42 @@
+# CDK
+cdk.out/
+*.js
+!jest.config.js
+*.d.ts
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Build
+dist/
+build/
+
+# Test
+coverage/
+.nyc_output/
+
+# Misc
+*.zip
+*.tar.gz
+

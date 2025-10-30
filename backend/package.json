@@ -1,0 +1,40 @@
+{
+  "name": "intelligent-doc-processor-backend",
+  "version": "1.0.0",
+  "description": "Intelligent Document Processing Pipeline using Bedrock Agents and Flows",
+  "bin": {
+    "intelligent-doc-processor": "bin/intelligent-doc-processor.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "22.13.10",
+    "aws-cdk": "^2.189.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.6",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent": "^3.764.0",
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.764.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.764.0",
+    "@aws-sdk/client-textract": "^3.764.0",
+    "@aws-sdk/client-comprehend": "^3.764.0",
+    "@aws-sdk/client-s3": "^3.764.0",
+    "@aws-sdk/client-dynamodb": "^3.764.0",
+    "@aws-sdk/lib-dynamodb": "^3.764.0",
+    "@aws-sdk/credential-providers": "^3.764.0",
+    "@opensearch-project/opensearch": "^2.8.0",
+    "aws-cdk-lib": "^2.189.1",
+    "constructs": "^10.4.2",
+    "source-map-support": "^0.5.21",
+    "uuid": "^11.1.0"
+  }
+}
+

@@ -1,0 +1,131 @@
+{
+  "FlowDefinition": {
+    "Version": "1.0",
+    "Nodes": [
+      {
+        "Type": "Input",
+        "Name": "FlowInput",
+        "Inputs": [
+          {
+            "Name": "s3Bucket",
+            "Type": "String",
+            "Required": true,
+            "Description": "S3 bucket name containing the document"
+          },
+          {
+            "Name": "s3Key",
+            "Type": "String",
+            "Required": true,
+            "Description": "S3 object key for the document"
+          },
+          {
+            "Name": "documentId",
+            "Type": "String",
+            "Required": true,
+            "Description": "Unique document identifier"
+          }
+        ]
+      },
+      {
+        "Type": "Prompt",
+        "Name": "DocumentProcessor",
+        "ModelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "PromptTemplate": "You are processing a document from S3. Document details:\n- Bucket: {{s3Bucket}}\n- Key: {{s3Key}}\n- Document ID: {{documentId}}\n\nReturn a JSON response with:\n- processingStatus: 'initiated'\n- documentId: the document ID\n- message: 'Document processing initiated - extraction will be handled by Lambda functions'",
+        "Inputs": [
+          {
+            "Name": "s3Bucket",
+            "Type": "String",
+            "Expression": "$.s3Bucket"
+          },
+          {
+            "Name": "s3Key",
+            "Type": "String",
+            "Expression": "$.s3Key"
+          },
+          {
+            "Name": "documentId",
+            "Type": "String",
+            "Expression": "$.documentId"
+          }
+        ],
+        "Outputs": [
+          {
+            "Name": "processingResult",
+            "Type": "Object"
+          }
+        ]
+      },
+      {
+        "Type": "Output",
+        "Name": "FlowOutput",
+        "Inputs": [
+          {
+            "Name": "documentId",
+            "Type": "String",
+            "Expression": "$.documentId"
+          },
+          {
+            "Name": "status",
+            "Type": "String",
+            "Value": "initiated"
+          },
+          {
+            "Name": "result",
+            "Type": "Object",
+            "Expression": "$.processingResult"
+          }
+        ]
+      }
+    ],
+    "Connections": [
+      {
+        "Name": "Input_to_Processor",
+        "Source": "FlowInput",
+        "Target": "DocumentProcessor",
+        "Type": "Data",
+        "Configuration": {
+          "Data": {
+            "SourceOutput": "documentId",
+            "TargetInput": "documentId"
+          }
+        }
+      },
+      {
+        "Name": "Input_to_Processor_Bucket",
+        "Source": "FlowInput",
+        "Target": "DocumentProcessor",
+        "Type": "Data",
+        "Configuration": {
+          "Data": {
+            "SourceOutput": "s3Bucket",
+            "TargetInput": "s3Bucket"
+          }
+        }
+      },
+      {
+        "Name": "Input_to_Processor_Key",
+        "Source": "FlowInput",
+        "Target": "DocumentProcessor",
+        "Type": "Data",
+        "Configuration": {
+          "Data": {
+            "SourceOutput": "s3Key",
+            "TargetInput": "s3Key"
+          }
+        }
+      },
+      {
+        "Name": "Processor_to_Output",
+        "Source": "DocumentProcessor",
+        "Target": "FlowOutput",
+        "Type": "Data",
+        "Configuration": {
+          "Data": {
+            "SourceOutput": "processingResult",
+            "TargetInput": "result"
+          }
+        }
+      }
+    ]
+  }
+}
