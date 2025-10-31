@@ -24,18 +24,19 @@ import { join } from "path";
 import * as uuid from "uuid";
 
 /**
- * SIMPLIFIED ARCHITECTURE - Following AWS Workshop Pattern
+ * SIMPLIFIED ARCHITECTURE - Following AWS Workshop Pattern (Module 05-idp-gen-ai)
  * 
- * Reference: https://catalog.workshops.aws/intelligent-document-processing/en-US
+ * Reference: https://catalog.workshops.aws/intelligent-document-processing/en-US/05-idp-gen-ai
  * 
  * Pattern:
  * S3 Upload → EventBridge → Lambda Function
  *                           ↓
  *                    - Textract (extract text)
  *                    - Comprehend (language, entities, phrases)
+ *                    - Bedrock Claude Sonnet 4.5 (summary, insights, structured data)
  *                    - DynamoDB (store metadata)
  * 
- * No Bedrock Flows, No OpenSearch, No VPC complexity
+ * Follows AWS Workshop Module 05-idp-gen-ai for Gen AI enrichment
  */
 export class SimplifiedDocProcessorStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -118,7 +119,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     metadataTable.grantWriteData(processorLambda);
     encryptionKey.grantEncryptDecrypt(processorLambda);
     
-    // Grant Textract and Comprehend permissions
+    // Grant Textract, Comprehend, and Bedrock permissions
     processorLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -127,8 +128,11 @@ export class SimplifiedDocProcessorStack extends Stack {
           "comprehend:DetectDominantLanguage",
           "comprehend:DetectEntities",
           "comprehend:ExtractKeyPhrases",
+          "bedrock:InvokeModel",
         ],
-        resources: ["*"],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0`,
+        ],
       })
     );
 

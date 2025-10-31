@@ -5,11 +5,15 @@ const {
   DetectEntitiesCommand,
   ExtractKeyPhrasesCommand,
 } = require("@aws-sdk/client-comprehend");
+const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
 const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
 
 const textract = new TextractClient();
 const comprehend = new ComprehendClient();
+const bedrock = new BedrockRuntimeClient();
 const dynamodb = new DynamoDBClient();
+
+const BEDROCK_MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0";
 
 exports.handler = async (event) => {
   console.log("Event received:", JSON.stringify(event, null, 2));
@@ -90,14 +94,85 @@ exports.handler = async (event) => {
       })
     );
 
-    // Step 5: Store metadata in DynamoDB
-    console.log("Step 5: Storing metadata...");
+    // Step 5: Generate insights using Bedrock (Claude Sonnet 4.5)
+    console.log("Step 5: Generating insights with Bedrock...");
+    let summary = "";
+    let insights = "";
+    let structuredData = "";
+
+    try {
+      const prompt = `You are analyzing a document. Provide:
+1. A concise summary (2-3 sentences)
+2. Key insights and important information
+3. Structured data extraction (dates, amounts, names, locations, organizations)
+
+Document text (first 100k characters):
+${text.substring(0, 100000)}
+
+Format your response as JSON:
+{
+  "summary": "concise summary",
+  "insights": "key insights and important information",
+  "structuredData": {
+    "dates": [],
+    "amounts": [],
+    "keyNames": [],
+    "locations": [],
+    "organizations": []
+  }
+}`;
+
+      const bedrockResponse = await bedrock.send(
+        new InvokeModelCommand({
+          modelId: BEDROCK_MODEL_ID,
+          contentType: "application/json",
+          accept: "application/json",
+          body: JSON.stringify({
+            anthropic_version: "bedrock-2023-05-31",
+            max_tokens: 4000,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+          }),
+        })
+      );
+
+      const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body));
+      const content = responseBody.content[0].text;
+      
+      try {
+        // Try to parse as JSON
+        const parsedContent = JSON.parse(content);
+        summary = parsedContent.summary || "";
+        insights = parsedContent.insights || "";
+        structuredData = JSON.stringify(parsedContent.structuredData || {});
+      } catch (parseError) {
+        // If not JSON, use the text as summary
+        console.warn("Bedrock response not in expected JSON format, using as summary");
+        summary = content.substring(0, 1000);
+        insights = content;
+      }
+    } catch (bedrockError) {
+      console.error("Error calling Bedrock:", bedrockError);
+      // Continue without Bedrock enrichment
+      summary = "Error generating summary";
+      insights = "Error generating insights";
+    }
+
+    // Step 6: Store metadata in DynamoDB
+    console.log("Step 6: Storing metadata...");
     await storeMetadata(documentId, {
       language,
       entities: entitiesResponse.Entities || [],
       keyPhrases: phrasesResponse.KeyPhrases || [],
       text: text.substring(0, 10000), // Store first 10k chars
       fullTextLength: text.length,
+      summary: summary,
+      insights: insights,
+      structuredData: structuredData,
     });
 
     console.log(`Successfully processed document: ${documentId}`);
@@ -110,6 +185,8 @@ exports.handler = async (event) => {
         entityCount: entitiesResponse.Entities?.length || 0,
         keyPhraseCount: phrasesResponse.KeyPhrases?.length || 0,
         textLength: text.length,
+        summaryGenerated: summary.length > 0,
+        insightsGenerated: insights.length > 0,
       }),
     };
   } catch (error) {
@@ -132,6 +209,9 @@ async function storeMetadata(documentId, metadata) {
         keyPhrases: { S: JSON.stringify(metadata.keyPhrases) },
         text: { S: metadata.text || "" },
         fullTextLength: { N: String(metadata.fullTextLength || 0) },
+        summary: { S: metadata.summary || "" },
+        insights: { S: metadata.insights || "" },
+        structuredData: { S: metadata.structuredData || "{}" },
       },
     })
   );

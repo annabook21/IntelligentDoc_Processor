@@ -9,6 +9,9 @@ This pipeline processes documents (PDF, DOCX, images) uploaded to S3, automatica
 - **Language** using Amazon Comprehend language detection
 - **Named entities** (people, places, organizations) using Amazon Comprehend
 - **Key phrases** using Amazon Comprehend
+- **Document summary** using Amazon Bedrock (Claude Sonnet 4.5)
+- **Intelligent insights** using Amazon Bedrock (Claude Sonnet 4.5)
+- **Structured data** extraction using Amazon Bedrock (dates, amounts, locations, organizations)
 
 The extracted data is stored in:
 - **DynamoDB** for structured metadata queries
@@ -33,6 +36,7 @@ This solution follows the **AWS Workshop Pattern** - simple, direct, and efficie
        ├─→ Comprehend (language)
        ├─→ Comprehend (entities)
        ├─→ Comprehend (key phrases)
+       ├─→ Bedrock Claude Sonnet 4.5 (summary, insights, structured data)
        └─→ DynamoDB (store metadata)
 ```
 
@@ -52,7 +56,8 @@ This solution follows the **AWS Workshop Pattern** - simple, direct, and efficie
 ✅ **Cost Optimization**: S3 lifecycle policies (Intelligent-Tiering → Glacier → Deep Archive)  
 ✅ **Language Detection**: Automatic language detection for multi-language documents  
 ✅ **Entity Extraction**: Extracts people, places, organizations, dates, etc.  
-✅ **Simple Architecture**: Direct Lambda → Textract → Comprehend → DynamoDB  
+✅ **Gen AI Enrichment**: Claude Sonnet 4.5 for document summarization and insights  
+✅ **Simple Architecture**: Direct Lambda → Textract → Comprehend → Bedrock → DynamoDB  
 ✅ **Infrastructure as Code**: Fully deployable via AWS CDK  
 ✅ **Monitoring**: CloudWatch dashboards and alarms  
 
@@ -72,6 +77,15 @@ For full-text search of document content, you can add OpenSearch later. For comp
 - **Node.js** ≥ 22.9.0 and npm
 - **AWS CDK CLI** v2: `npm install -g aws-cdk`
 - **Docker Desktop** (for Lambda bundling)
+- **Bedrock Model Access** enabled in your AWS account:
+  - `anthropic.claude-sonnet-4-5-20250929-v1:0` (for document summarization and insights)
+
+### Enable Bedrock Model Access
+
+1. Navigate to [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/home)
+2. Click **Model access** in bottom-left corner
+3. Click **Manage model access**
+4. Enable: **Anthropic Claude Sonnet 4.5**: `anthropic.claude-sonnet-4-5-20250929-v1:0`
 
 ## Deployment
 

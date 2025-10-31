@@ -78,6 +78,9 @@ async function handleMetadata(documentId) {
       keyPhrases: JSON.parse(item.keyPhrases || "[]"),
       text: item.text,
       fullTextLength: parseInt(item.fullTextLength || 0),
+      summary: item.summary || "",
+      insights: item.insights || "",
+      structuredData: JSON.parse(item.structuredData || "{}"),
     }),
   };
 }
