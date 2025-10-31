@@ -102,7 +102,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     
     // DynamoDB Global Table - Multi-region with automatic replication
     const globalTable = new CfnGlobalTable(this, "MetadataGlobalTable", {
-      tableName: `document-metadata-${primaryRegion}`,
+      tableName: `document-metadata-${uuid.v4().substring(0, 8)}-${primaryRegion}`,
       billingMode: "PAY_PER_REQUEST",
       globalSecondaryIndexes: [
         {
@@ -131,13 +131,10 @@ export class SimplifiedDocProcessorStack extends Stack {
           pointInTimeRecoverySpecification: {
             pointInTimeRecoveryEnabled: true,
           },
-          // AWS-managed encryption (alias/aws/dynamodb) - available in all regions
+          // Using AWS-managed encryption (default) - omit sseSpecification for default encryption
           // AWS Documentation: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-security.html
-          // All replicas must use the same type (AWS-managed, AWS-owned, or customer-managed)
-          // Using AWS-managed for simplicity and automatic availability in all regions
-          sseSpecification: {
-            kmsMasterKeyId: "alias/aws/dynamodb",
-          },
+          // All replicas must use the same encryption type (default AWS-managed when sseSpecification is omitted)
+          // When using default SSE, sseSpecification must be null/omitted
           deletionProtectionEnabled: true,
           tags: [
             { key: "Purpose", value: "DocumentMetadata" },
@@ -149,11 +146,8 @@ export class SimplifiedDocProcessorStack extends Stack {
           pointInTimeRecoverySpecification: {
             pointInTimeRecoveryEnabled: true,
           },
-          // AWS-managed encryption - same key alias available in all regions
-          // This ensures both replicas use the same encryption type (required by AWS)
-          sseSpecification: {
-            kmsMasterKeyId: "alias/aws/dynamodb",
-          },
+          // AWS-managed encryption (default) - same as primary region
+          // Omitting sseSpecification uses AWS-managed encryption automatically
           deletionProtectionEnabled: true,
           tags: [
             { key: "Purpose", value: "DocumentMetadata" },
@@ -284,10 +278,28 @@ export class SimplifiedDocProcessorStack extends Stack {
     const api = new apigw.RestApi(this, "DocumentProcessorAPI", {
       restApiName: `doc-processor-api-${this.region}`,
       defaultCorsPreflightOptions: {
+        // CORS allows cross-origin requests, but API endpoints require IAM authentication
+        // This complies with SCP requirements - no public access
         allowOrigins: apigw.Cors.ALL_ORIGINS,
         allowHeaders: ["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key"],
         allowMethods: apigw.Cors.ALL_METHODS,
       },
+      // API Gateway Resource Policy - restrict to AWS account only (no public access)
+      policy: new iam.PolicyDocument({
+        statements: [
+          new iam.PolicyStatement({
+            effect: iam.Effect.DENY,
+            principals: [new iam.AnyPrincipal()],
+            actions: ["execute-api:Invoke"],
+            resources: ["*"],
+            conditions: {
+              StringNotEquals: {
+                "aws:PrincipalAccount": this.account,
+              },
+            },
+          }),
+        ],
+      }),
       deployOptions: {
         throttlingRateLimit: 100,
         throttlingBurstLimit: 200,
@@ -312,8 +324,10 @@ export class SimplifiedDocProcessorStack extends Stack {
       authorizationType: apigw.AuthorizationType.IAM,
     });
 
-    // Health endpoint (public for monitoring)
-    api.root.addResource("health").addMethod("GET", apiIntegration);
+    // Health endpoint (IAM authentication required - complies with SCP)
+    api.root.addResource("health").addMethod("GET", apiIntegration, {
+      authorizationType: apigw.AuthorizationType.IAM,
+    });
 
     /** CloudWatch Monitoring */
     const alertTopic = new sns.Topic(this, "AlertTopic", {
