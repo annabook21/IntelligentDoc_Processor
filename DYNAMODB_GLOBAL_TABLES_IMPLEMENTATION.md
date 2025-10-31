@@ -47,32 +47,38 @@ Primary Region (us-west-2)          DR Region (us-east-2)
 └─────────────────────────┘         └─────────────────────────┘
 ```
 
-## KMS Encryption Considerations
+## KMS Encryption Configuration
 
-**Important**: KMS keys are region-specific. Each Global Table replica needs its own KMS key in its region.
+**Solution Implemented**: AWS-Managed Encryption (`alias/aws/dynamodb`)
+
+### Why AWS-Managed Encryption?
+Per AWS Documentation (https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-security.html):
+1. ✅ **Available in all regions**: The `alias/aws/dynamodb` alias exists automatically in every AWS region
+2. ✅ **Same key type required**: All replicas must use the same encryption type (AWS-managed, AWS-owned, or customer-managed)
+3. ✅ **No key management**: AWS manages the keys automatically
+4. ✅ **Still encrypted**: Data is encrypted at rest, just managed by AWS
+5. ✅ **Simplifies deployment**: No cross-region key dependencies
 
 ### Current Implementation
-- Uses primary region's KMS key for both replicas
-- This will work for primary region
-- DR region will need its own KMS key or key replica
-
-### Options for KMS in DR Region
-
-**Option 1: Use AWS-Managed Encryption (Simplest)**
 ```typescript
 sseSpecification: {
-  sseEnabled: true,
-  sseType: "AES256", // AWS-managed, no key needed
+  kmsMasterKeyId: "alias/aws/dynamodb", // Available in all regions
 }
 ```
 
-**Option 2: Create KMS Key Replica (Recommended for production)**
-- Create KMS key replica in DR region using AWS KMS multi-region keys
-- Reference the replica key ID in DR region replica configuration
+Both primary and DR region replicas use `alias/aws/dynamodb`, ensuring:
+- Same encryption type across all replicas (required by AWS)
+- Automatic availability in all regions
+- No key management overhead
 
-**Option 3: Create Separate KMS Key in DR Region**
-- Deploy separate CDK stack to DR region with its own KMS key
-- Use that key ID in Global Table replica configuration
+### Alternative: Customer-Managed Keys (if required)
+
+If customer-managed keys are required for compliance:
+1. Create separate customer-managed keys in each region
+2. Deploy stack to DR region with its own KMS key
+3. Use multi-region KMS keys for cross-region key replication
+
+**Note**: Customer-managed keys add complexity and require key management in each region.
 
 ## How It Works
 

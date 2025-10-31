@@ -131,10 +131,12 @@ export class SimplifiedDocProcessorStack extends Stack {
           pointInTimeRecoverySpecification: {
             pointInTimeRecoveryEnabled: true,
           },
-          // ReplicaSSESpecification only has kmsMasterKeyId property
-          // Providing kmsMasterKeyId enables KMS encryption for this replica
+          // AWS-managed encryption (alias/aws/dynamodb) - available in all regions
+          // AWS Documentation: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-security.html
+          // All replicas must use the same type (AWS-managed, AWS-owned, or customer-managed)
+          // Using AWS-managed for simplicity and automatic availability in all regions
           sseSpecification: {
-            kmsMasterKeyId: encryptionKey.keyId,
+            kmsMasterKeyId: "alias/aws/dynamodb",
           },
           deletionProtectionEnabled: true,
           tags: [
@@ -147,14 +149,10 @@ export class SimplifiedDocProcessorStack extends Stack {
           pointInTimeRecoverySpecification: {
             pointInTimeRecoveryEnabled: true,
           },
-          // Note: KMS keys are region-specific. The DR region will need its own KMS key.
-          // Options:
-          // 1. Create KMS key replica in DR region (AWS KMS multi-region keys)
-          // 2. Create separate KMS key in DR region via separate CDK stack
-          // 3. Use AWS-managed encryption (omit sseSpecification or use alias/aws/dynamodb)
-          // For now, using primary region key ID (may need manual update post-deployment)
+          // AWS-managed encryption - same key alias available in all regions
+          // This ensures both replicas use the same encryption type (required by AWS)
           sseSpecification: {
-            kmsMasterKeyId: encryptionKey.keyId,
+            kmsMasterKeyId: "alias/aws/dynamodb",
           },
           deletionProtectionEnabled: true,
           tags: [
