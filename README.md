@@ -1,106 +1,70 @@
 # Intelligent Document Processing Pipeline
 
-A production-ready, serverless document processing pipeline built on AWS using **Amazon Bedrock Agents and Flows** for modern, efficient document intelligence extraction. This solution automatically processes thousands of documents, extracts keywords, entities, locations, and phrases, detects languages, and stores extracted data in a highly available, searchable format.
+A simplified, production-ready serverless document processing pipeline built on AWS following the [AWS Intelligent Document Processing Workshop](https://catalog.workshops.aws/intelligent-document-processing/en-US) pattern. This solution automatically processes documents, extracts keywords, entities, locations, and phrases, detects languages, and stores extracted data in a searchable format.
 
 ## Overview
 
-This pipeline processes documents (PDF, DOCX, etc.) uploaded to S3, automatically extracting:
-- **Keywords and key phrases** using Amazon Comprehend
+This pipeline processes documents (PDF, DOCX, images) uploaded to S3, automatically extracting:
+- **Text content** from documents using Amazon Textract
+- **Language** using Amazon Comprehend language detection
 - **Named entities** (people, places, organizations) using Amazon Comprehend
-- **Document language** using automatic language detection
-- **Text content** from scanned/images using Amazon Textract
+- **Key phrases** using Amazon Comprehend
 
 The extracted data is stored in:
 - **DynamoDB** for structured metadata queries
-- **OpenSearch** for full-text search capabilities
 - **S3** for original document retention with cost-optimized lifecycle policies
 
 ## Architecture
 
-The solution uses **Bedrock Agents and Flows** instead of traditional Lambda functions for orchestration, providing:
-- More efficient AI workload orchestration
-- Native integration with AWS AI services
-- Simplified workflow management
-- Better scalability and cost optimization
-
-### High-Level Architecture
+This solution follows the **AWS Workshop Pattern** - simple, direct, and efficient:
 
 ```
-┌─────────────────┐
-│  Document Upload│
-│  (S3 Bucket)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  SQS Queue      │◄─── S3 Event Notification
-│  (Processing)   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Bedrock Agent   │◄─── Invokes Flow
-│ (Orchestrator)  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Bedrock Flow    │───► Textract (Text Extraction)
-│ (Workflow)      │───► Comprehend (Language Detection)
-│                 │───► Comprehend (Entity Extraction)
-│                 │───► Comprehend (Key Phrase Extraction)
-│                 │───► DynamoDB (Metadata Storage)
-│                 │───► OpenSearch (Full-Text Index)
-└─────────────────┘
+┌─────────────┐
+│ S3 Bucket   │ (Documents)
+└──────┬──────┘
+       │
+       ▼ EventBridge
+┌─────────────┐
+│ Lambda      │ Process Document
+│ Function    │
+└──────┬──────┘
+       │
+       ├─→ Textract (extract text)
+       ├─→ Comprehend (language)
+       ├─→ Comprehend (entities)
+       ├─→ Comprehend (key phrases)
+       └─→ DynamoDB (store metadata)
 ```
 
 ### Core Components
 
-#### 1. Document Ingestion Layer
-- **S3 Bucket**: Receives documents via direct upload or API
-- **S3 Event Notifications**: Triggers processing automatically
-- **SQS Queue**: Queues documents for parallel processing
-- **Dead Letter Queue (DLQ)**: Captures failed processing attempts
-
-#### 2. Processing Layer (Bedrock Agents & Flows)
-- **Bedrock Agent**: Orchestrates document processing workflow
-- **Bedrock Flow**: Defines multi-step processing pipeline:
-  1. Text extraction (Textract)
-  2. Language detection (Comprehend)
-  3. Entity extraction (Comprehend)
-  4. Key phrase extraction (Comprehend)
-  5. Metadata summarization (Claude)
-  6. Storage (DynamoDB + OpenSearch)
-
-#### 3. Storage Layer
-- **DynamoDB**: Stores document metadata with GSIs for language/entity queries
-- **OpenSearch**: Full-text search index for document content
-- **S3 Lifecycle Policies**: Automatic cost optimization (Intelligent-Tiering → Glacier → Deep Archive)
-
-#### 4. API Layer
-- **API Gateway**: RESTful API for search and metadata retrieval
-- **Search Endpoint**: `/search` - Full-text and metadata queries
-- **Metadata Endpoint**: `/metadata/{documentId}` - Get document metadata
-- **Health Endpoint**: `/health` - System health check
-
-#### 5. Monitoring & Observability
-- **CloudWatch Dashboard**: Real-time metrics and monitoring
-- **CloudWatch Alarms**: Automated alerts for processing failures
-- **SNS Notifications**: Alert delivery for operational teams
+1. **S3 Bucket**: Stores original documents, triggers processing on upload
+2. **EventBridge Rule**: Routes S3 events to Lambda
+3. **Lambda Function**: Orchestrates Textract + Comprehend processing
+4. **DynamoDB Table**: Stores extracted metadata with GSI for language queries
+5. **API Gateway**: REST API for searching metadata
 
 ## Key Features
 
-✅ **Automatic Processing**: No human intervention required - documents processed as they arrive  
-✅ **Parallel Processing**: SQS queue enables concurrent document processing  
-✅ **Error Handling**: DLQ captures failures with retry logic and notifications  
-✅ **Cost Optimization**: S3 lifecycle policies for long-term storage  
-✅ **Highly Available**: DynamoDB and OpenSearch provide searchable data storage  
+✅ **Automatic Processing**: No human intervention - documents processed automatically  
+✅ **Parallel Processing**: EventBridge enables concurrent document processing  
+✅ **Error Handling**: Dead Letter Queue captures failures with retry logic  
+✅ **Cost Optimization**: S3 lifecycle policies (Intelligent-Tiering → Glacier → Deep Archive)  
 ✅ **Language Detection**: Automatic language detection for multi-language documents  
 ✅ **Entity Extraction**: Extracts people, places, organizations, dates, etc.  
-✅ **Modern Architecture**: Uses Bedrock Agents and Flows instead of traditional Lambda orchestration  
+✅ **Simple Architecture**: Direct Lambda → Textract → Comprehend → DynamoDB  
 ✅ **Infrastructure as Code**: Fully deployable via AWS CDK  
-✅ **Monitoring**: Comprehensive CloudWatch dashboards and alarms  
-✅ **Security**: Encryption at rest and in transit, IAM least privilege  
+✅ **Monitoring**: CloudWatch dashboards and alarms  
+
+## Why This Simplified Architecture?
+
+This follows the AWS Workshop pattern instead of using Bedrock Flows because:
+- **Bedrock Flows** are overkill for batch document processing (better for conversational AI)
+- **OpenSearch** isn't needed if you're only searching metadata (DynamoDB GSIs are sufficient)
+- **VPC** isn't required for serverless services unless your SCP explicitly requires it
+- **Direct Lambda** is simpler, faster to deploy, and easier to debug
+
+For full-text search of document content, you can add OpenSearch later. For complex workflow logic, you can add Step Functions later. But start simple.
 
 ## Prerequisites
 
@@ -108,26 +72,14 @@ The solution uses **Bedrock Agents and Flows** instead of traditional Lambda fun
 - **Node.js** ≥ 22.9.0 and npm
 - **AWS CDK CLI** v2: `npm install -g aws-cdk`
 - **Docker Desktop** (for Lambda bundling)
-- **Bedrock Model Access** enabled in your AWS account:
-  - `amazon.titan-embed-text-v1` (for embeddings if needed)
-  - `anthropic.claude-3-sonnet-20240229-v1:0` (for summarization)
-
-### Enable Bedrock Model Access
-
-1. Navigate to [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/home)
-2. Click **Model access** in bottom-left corner
-3. Click **Manage model access**
-4. Enable:
-   - **Titan Embeddings G1 - Text**: `amazon.titan-embed-text-v1`
-   - **Anthropic Claude 3 Sonnet**: `anthropic.claude-3-sonnet-20240229-v1:0`
 
 ## Deployment
 
 ### 1. Clone and Setup
 
 ```bash
-git clone <repository-url>
-cd intelligent-doc-processor/backend
+git clone https://github.com/annabook21/IntelligentDoc_Processor.git
+cd IntelligentDoc_Processor/backend
 npm install
 ```
 
@@ -142,15 +94,14 @@ cdk bootstrap aws://$ACCOUNT/$REGION
 ### 3. Deploy Stack
 
 ```bash
-cdk deploy IntelligentDocProcessorStack
+cdk deploy SimplifiedDocProcessorStack
 ```
 
 The deployment creates:
 - S3 bucket for documents
-- SQS queues (processing + DLQ)
-- DynamoDB table with GSIs
-- OpenSearch domain
-- Bedrock Agent and Flow
+- DynamoDB table with GSI
+- Lambda function for document processing
+- Lambda function for search API
 - API Gateway with endpoints
 - CloudWatch dashboard and alarms
 
@@ -159,15 +110,13 @@ The deployment creates:
 After deployment, note the outputs:
 - `DocumentsBucketName` - Upload documents here
 - `APIEndpoint` - API Gateway URL
-- `FlowId` - Bedrock Flow ID
-- `AgentId` - Bedrock Agent ID
 - `DashboardName` - CloudWatch dashboard
 
 ## Usage
 
 ### Upload Documents
 
-Upload documents to the S3 bucket (from deployment outputs):
+Upload documents to the S3 bucket:
 
 ```bash
 aws s3 cp document.pdf s3://<DocumentsBucketName>/
@@ -177,39 +126,25 @@ Documents are automatically processed via the pipeline.
 
 ### Search Documents
 
-#### Full-Text Search
-
-```bash
-curl "https://<APIEndpoint>/search?q=security+policy&limit=10"
-```
-
 #### Search by Language
 
 ```bash
 curl "https://<APIEndpoint>/search?language=en&limit=10"
 ```
 
-#### Search by Entity Type
-
-```bash
-curl "https://<APIEndpoint>/search?entityType=PERSON&limit=10"
-```
-
-### Get Document Metadata
+#### Get Document Metadata
 
 ```bash
 curl "https://<APIEndpoint>/metadata/<documentId>"
 ```
 
-### Health Check
+Note: Replace `<documentId>` with the full S3 key, e.g., `bucket-name/path/to/document.pdf`
+
+#### Health Check
 
 ```bash
 curl "https://<APIEndpoint>/health"
 ```
-
-## Architecture Diagram
-
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture diagrams.
 
 ## Cost Optimization
 
@@ -222,17 +157,16 @@ The solution implements several cost optimization strategies:
 
 2. **DynamoDB On-Demand**: Pay per request, no capacity planning needed
 
-3. **OpenSearch**: Single-node development instance (upgrade for production)
+3. **Serverless Architecture**: Pay only for what you use (Lambda invocations, API Gateway requests)
 
-4. **Bedrock Pay-Per-Use**: Only pay for what you process
+Estimated cost: ~$20-50/month for moderate usage (1000 documents/month, 100GB storage)
 
 ## Security
 
-- **Encryption**: All data encrypted at rest (S3, DynamoDB, OpenSearch) and in transit (HTTPS)
+- **Encryption**: All data encrypted at rest (S3, DynamoDB with KMS) and in transit (HTTPS)
 - **IAM**: Least privilege access policies
-- **VPC**: OpenSearch can be deployed in VPC (configure in stack)
 - **Access Control**: Private S3 bucket, no public access
-- **Audit**: CloudTrail logging enabled for all API calls
+- **API Authentication**: IAM authentication on search endpoints (can add Cognito if needed)
 
 ## Monitoring
 
@@ -242,58 +176,62 @@ Access the CloudWatch dashboard:
 3. Open dashboard: `doc-processor-metrics-<region>`
 
 ### Key Metrics
-- Processing queue depth
-- Failed documents (DLQ)
 - Document processing rate
+- Failed documents (DLQ)
 - API Gateway request/error rates
 
 ### Alarms
 - DLQ messages (any failure triggers alert)
-- Queue depth (backlog alert at 100 documents)
+- Lambda errors
 - SNS notifications sent to subscribed email/SMS
 
-## Disaster Recovery
+## Architecture Comparison
 
-For production deployments, consider:
-- **Multi-Region Replication**: S3 Cross-Region Replication
-- **DynamoDB Global Tables**: Multi-region metadata
-- **OpenSearch Multi-AZ**: High availability configuration
-- **Regular Backups**: S3 versioning + OpenSearch snapshots
+### Simplified (Current)
+- ✅ Lambda → Textract → Comprehend → DynamoDB
+- ✅ ~200 lines of CDK
+- ✅ Fast deployment
+- ✅ Easy to debug
+- ✅ Lower cost
 
-See [DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md) for DR setup guide.
+### Previous (Over-Engineered)
+- ❌ EventBridge → Lambda → Bedrock Flow → Textract/Comprehend → DynamoDB/OpenSearch
+- ❌ ~400+ lines of CDK
+- ❌ Complex VPC setup
+- ❌ Slower deployment
+- ❌ Harder to debug
+- ❌ Higher cost
+
+## When to Add Complexity
+
+Only add if you actually need:
+
+- **OpenSearch**: Only if you need full-text search of document content (not just metadata)
+- **Step Functions**: Only if you need complex workflow logic with conditional branching
+- **Bedrock Flows**: Only if you need conversational AI workflows
+- **VPC**: Only if your SCP explicitly requires it for all resources
 
 ## Troubleshooting
 
 ### Documents Not Processing
 
-1. Check SQS queue: `aws sqs get-queue-attributes --queue-url <queue-url>`
+1. Check EventBridge rule: Verify S3 events are being sent
 2. Check DLQ for failures: `aws sqs receive-message --queue-url <dlq-url>`
-3. Check CloudWatch Logs: `/aws/lambda/document-processor-<region>`
+3. Check CloudWatch Logs: `/aws/lambda/doc-processor-<region>`
 
-### Bedrock Agent/Flow Issues
-
-1. Verify Agent exists: `aws bedrock-agent get-agent --agent-id <agent-id>`
-2. Check Flow definition: `aws bedrock-agent get-flow --flow-id <flow-id>`
-3. Review IAM permissions for Bedrock Agent role
-
-### OpenSearch Connection Issues
+### API Gateway Issues
 
 1. Verify endpoint: Check deployment outputs
-2. Check security groups (if VPC-deployed)
-3. Test connectivity: `curl -X GET https://<endpoint>`
+2. Check IAM permissions for API calls
+3. Verify DynamoDB table exists
 
-## Contributing
+## References
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+- [AWS Intelligent Document Processing Workshop](https://catalog.workshops.aws/intelligent-document-processing/en-US)
+- [Amazon Textract Documentation](https://docs.aws.amazon.com/textract/)
+- [Amazon Comprehend Documentation](https://docs.aws.amazon.com/comprehend/)
+- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) file.
-
-## References
-
-- [Amazon Bedrock Flows Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/flows.html)
-- [AWS Bedrock Flows Samples](https://github.com/aws-samples/amazon-bedrock-flows-samples)
-- [Amazon Textract Documentation](https://docs.aws.amazon.com/textract/)
-- [Amazon Comprehend Documentation](https://docs.aws.amazon.com/comprehend/)
-
