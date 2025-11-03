@@ -24,12 +24,13 @@
     "@aws-sdk/client-bedrock-agent": "^3.764.0",
     "@aws-sdk/client-bedrock-agent-runtime": "^3.764.0",
     "@aws-sdk/client-bedrock-runtime": "^3.764.0",
-    "@aws-sdk/client-textract": "^3.764.0",
     "@aws-sdk/client-comprehend": "^3.764.0",
-    "@aws-sdk/client-s3": "^3.764.0",
     "@aws-sdk/client-dynamodb": "^3.764.0",
-    "@aws-sdk/lib-dynamodb": "^3.764.0",
+    "@aws-sdk/client-s3": "^3.764.0",
+    "@aws-sdk/client-textract": "^3.764.0",
     "@aws-sdk/credential-providers": "^3.764.0",
+    "@aws-sdk/lib-dynamodb": "^3.764.0",
+    "@aws-sdk/s3-request-presigner": "^3.921.0",
     "@opensearch-project/opensearch": "^2.8.0",
     "aws-cdk-lib": "^2.189.1",
     "constructs": "^10.4.2",
@@ -37,4 +38,3 @@
     "uuid": "^11.1.0"
   }
 }
-

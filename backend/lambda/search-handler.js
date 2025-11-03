@@ -3,19 +3,49 @@ const { unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const dynamodb = new DynamoDBClient();
 
+const getCorsHeaders = () => ({
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+});
+
 exports.handler = async (event) => {
   console.log("Event received:", JSON.stringify(event, null, 2));
 
+  // Handle CORS preflight
+  if (event.requestContext?.http?.method === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: getCorsHeaders(),
+      body: "",
+    };
+  }
+
   const path = event.path || event.requestContext?.path || "";
+  const httpMethod = event.requestContext?.http?.method || event.httpMethod || "GET";
   const queryParams = event.queryStringParameters || {};
-  const documentId = event.pathParameters?.documentId;
+  const documentId = queryParams.documentId || event.pathParameters?.documentId;
+
+  // Parse POST body if present
+  let bodyParams = {};
+  if (httpMethod === "POST" && event.body) {
+    try {
+      bodyParams = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
+    } catch (e) {
+      console.warn("Failed to parse POST body:", e);
+    }
+  }
+
+  // Merge query params and body params (body takes precedence)
+  const params = { ...queryParams, ...bodyParams };
 
   try {
     // Health check endpoint
     if (path.includes("/health")) {
       return {
         statusCode: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: getCorsHeaders(),
         body: JSON.stringify({
           status: "healthy",
           timestamp: new Date().toISOString(),
@@ -29,13 +59,13 @@ exports.handler = async (event) => {
       return await handleMetadata(documentId);
     }
 
-    // Search endpoint: GET /search?q=query&language=en&limit=10
-    return await handleSearch(queryParams);
+    // Search endpoint: GET /search?q=query&language=en&limit=10 or POST /search
+    return await handleSearch(params);
   } catch (error) {
     console.error("Error handling request:", error);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: getCorsHeaders(),
       body: JSON.stringify({
         error: "Internal server error",
         message: error.message,
@@ -61,7 +91,7 @@ async function handleMetadata(documentId) {
   if (!result.Items || result.Items.length === 0) {
     return {
       statusCode: 404,
-      headers: { "Content-Type": "application/json" },
+      headers: getCorsHeaders(),
       body: JSON.stringify({ error: "Document not found" }),
     };
   }
@@ -69,7 +99,7 @@ async function handleMetadata(documentId) {
   const item = unmarshall(result.Items[0]);
   return {
     statusCode: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: getCorsHeaders(),
     body: JSON.stringify({
       documentId: item.documentId,
       processingDate: item.processingDate,
@@ -81,12 +111,15 @@ async function handleMetadata(documentId) {
       summary: item.summary || "",
       insights: item.insights || "",
       structuredData: JSON.parse(item.structuredData || "{}"),
+      status: item.status || "PROCESSED",
+      duplicateOf: item.duplicateOf || null,
+      contentHash: item.contentHash || null,
     }),
   };
 }
 
 async function handleSearch(queryParams) {
-  const { language, limit = "10", offset = "0" } = queryParams;
+  const { language, limit = "100", offset = "0", query = "" } = queryParams;
   const limitNum = parseInt(limit);
   const offsetNum = parseInt(offset);
 
@@ -127,22 +160,29 @@ async function handleSearch(queryParams) {
     }
   }
 
-  // Format results
-  const formattedResults = items.map((item) => ({
+  // Format results - return full document data for frontend
+  const documents = items.map((item) => ({
     documentId: item.documentId,
     processingDate: item.processingDate,
     language: item.language,
-    entityCount: JSON.parse(item.entities || "[]").length,
-    keyPhraseCount: JSON.parse(item.keyPhrases || "[]").length,
-    textPreview: item.text?.substring(0, 200) || "",
+    entities: item.entities || "[]",
+    keyPhrases: item.keyPhrases || "[]",
+    text: item.text || "",
+    fullTextLength: parseInt(item.fullTextLength || 0),
+    summary: item.summary || "",
+    insights: item.insights || "",
+    structuredData: item.structuredData || "{}",
+    status: item.status || "PROCESSED",
+    duplicateOf: item.duplicateOf || null,
+    contentHash: item.contentHash || null,
   }));
 
   return {
     statusCode: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: getCorsHeaders(),
     body: JSON.stringify({
-      results: formattedResults,
-      count: formattedResults.length,
+      documents: documents,
+      count: documents.length,
       limit: limitNum,
       offset: offsetNum,
     }),
