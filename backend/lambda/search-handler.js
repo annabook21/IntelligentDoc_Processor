@@ -102,6 +102,7 @@ async function handleMetadata(documentId) {
     headers: getCorsHeaders(),
     body: JSON.stringify({
       documentId: item.documentId,
+      documentName: item.documentName || "Unknown Document", // User-friendly name
       processingDate: item.processingDate,
       language: item.language,
       entities: JSON.parse(item.entities || "[]"),
@@ -163,6 +164,7 @@ async function handleSearch(queryParams) {
   // Format results - return full document data for frontend
   const documents = items.map((item) => ({
     documentId: item.documentId,
+    documentName: item.documentName || "Unknown Document", // User-friendly name
     processingDate: item.processingDate,
     language: item.language,
     entities: item.entities || "[]",

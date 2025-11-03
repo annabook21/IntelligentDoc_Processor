@@ -5,6 +5,7 @@ import './Upload.css';
 
 function Upload() {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [documentName, setDocumentName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -57,12 +58,20 @@ function Upload() {
 
       setSelectedFile(file);
       setMessage({ type: '', text: '' });
+      // Auto-populate document name from filename (without extension)
+      const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+      setDocumentName(nameWithoutExt);
     }
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
       setMessage({ type: 'error', text: 'Please select a file to upload.' });
+      return;
+    }
+
+    if (!documentName.trim()) {
+      setMessage({ type: 'error', text: 'Please provide a document name.' });
       return;
     }
 
@@ -87,6 +96,7 @@ function Upload() {
         {
           fileName: selectedFile.name,
           fileType: selectedFile.type,
+          documentName: documentName.trim(), // User-provided friendly name
         },
         {
           headers: {
@@ -113,9 +123,10 @@ function Upload() {
 
       setMessage({
         type: 'success',
-        text: `File "${selectedFile.name}" uploaded successfully! Processing will begin automatically.`,
+        text: `Document "${documentName}" uploaded successfully! Processing will begin automatically.`,
       });
       setSelectedFile(null);
+      setDocumentName('');
       setUploadProgress(0);
     } catch (error) {
       console.error('Upload error:', error);
@@ -190,6 +201,22 @@ function Upload() {
           </label>
         </div>
 
+        {selectedFile && (
+          <div className="document-name-input">
+            <label htmlFor="document-name">Document Name *</label>
+            <input
+              type="text"
+              id="document-name"
+              value={documentName}
+              onChange={(e) => setDocumentName(e.target.value)}
+              placeholder="Enter a friendly name for this document"
+              maxLength={100}
+              disabled={uploading}
+            />
+            <small>This name will be displayed in the dashboard (max 100 characters)</small>
+          </div>
+        )}
+
         {uploadProgress > 0 && (
           <div className="progress-bar-container">
             <div className="progress-bar">
@@ -205,7 +232,7 @@ function Upload() {
         <button
           className="button upload-button"
           onClick={handleUpload}
-          disabled={!selectedFile || uploading}
+          disabled={!selectedFile || !documentName.trim() || uploading}
         >
           {uploading ? 'Uploading...' : 'Upload Document'}
         </button>

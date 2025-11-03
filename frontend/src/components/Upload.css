@@ -90,6 +90,47 @@
   font-size: 14px;
 }
 
+.document-name-input {
+  margin-top: 24px;
+  text-align: left;
+}
+
+.document-name-input label {
+  display: block;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.document-name-input input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+}
+
+.document-name-input input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.document-name-input input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.document-name-input small {
+  display: block;
+  margin-top: 6px;
+  color: #666;
+  font-size: 12px;
+}
+
 .upload-button {
   width: 100%;
   margin-top: 16px;

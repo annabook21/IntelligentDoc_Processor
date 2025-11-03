@@ -90,8 +90,8 @@ function DocumentViewer() {
   return (
     <div className="document-viewer-container">
       <div className="page-header">
-        <h1>Document Details</h1>
-        <p>Document ID: {document.documentId}</p>
+        <h1>{document.documentName || 'Document Details'}</h1>
+        <p className="document-subtitle">Document Insights and Analysis</p>
       </div>
 
       {/* Summary Section */}

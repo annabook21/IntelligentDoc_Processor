@@ -255,6 +255,53 @@ export class SimplifiedDocProcessorStack extends Stack {
     // Lambda will use the table name and connect to local region replica
     const metadataTableName = globalTable.tableName || `document-metadata-${primaryRegion}`;
 
+    // DynamoDB Global Table for Document Name Mapping
+    // Maps user-friendly documentId (UUID) to S3 key and user-provided document name
+    // This prevents exposing sensitive S3 bucket names and paths to end users
+    const documentNameTableName = `document-names-${primaryRegion.replace(/-/g, "")}`;
+    
+    const documentNameTable = new CfnGlobalTable(this, "DocumentNameGlobalTable", {
+      tableName: documentNameTableName,
+      billingMode: "PAY_PER_REQUEST",
+      keySchema: [{ attributeName: "documentId", keyType: "HASH" }],
+      attributeDefinitions: [
+        { attributeName: "documentId", attributeType: "S" },
+        { attributeName: "s3Key", attributeType: "S" },
+      ],
+      globalSecondaryIndexes: [
+        {
+          indexName: "S3KeyIndex",
+          keySchema: [{ attributeName: "s3Key", keyType: "HASH" }],
+          projection: {
+            projectionType: "ALL",
+          },
+        },
+      ],
+      replicas: [
+        {
+          region: primaryRegion,
+          pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+          deletionProtectionEnabled: false,
+          tags: [
+            { key: "Purpose", value: "DocumentNameMapping" },
+            { key: "RegionType", value: "Primary" },
+          ],
+        },
+        {
+          region: drRegion,
+          pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+          deletionProtectionEnabled: true,
+          tags: [
+            { key: "Purpose", value: "DocumentNameMapping" },
+            { key: "RegionType", value: "DR" },
+          ],
+        },
+      ],
+      streamSpecification: {
+        streamViewType: "NEW_AND_OLD_IMAGES",
+      },
+    });
+
     // Hash registry table for duplicate detection (Global Table for DR compliance)
     const hashTableName = `document-hash-registry-${primaryRegion.replace(/-/g, "")}`;
 
@@ -391,6 +438,7 @@ export class SimplifiedDocProcessorStack extends Stack {
       timeout: Duration.seconds(30),
       environment: {
         METADATA_TABLE_NAME: metadataTableName,
+        DOCUMENT_NAME_TABLE: documentNameTableName,
       },
       logRetention: logs.RetentionDays.THREE_MONTHS,
       deadLetterQueue: lambdaDLQ,
@@ -402,6 +450,19 @@ export class SimplifiedDocProcessorStack extends Stack {
         resources: [
           `arn:aws:dynamodb:${this.region}:${this.account}:table/${metadataTableName}`,
           `arn:aws:dynamodb:${drRegion}:${this.account}:table/${metadataTableName}`,
+        ],
+      })
+    );
+    
+    // Grant query permissions to document name table (for S3Key lookup)
+    storeMetadataLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:Query"],
+        resources: [
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${documentNameTableName}`,
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${documentNameTableName}/index/*`,
+          `arn:aws:dynamodb:${drRegion}:${this.account}:table/${documentNameTableName}`,
+          `arn:aws:dynamodb:${drRegion}:${this.account}:table/${documentNameTableName}/index/*`,
         ],
       })
     );
@@ -579,6 +640,7 @@ export class SimplifiedDocProcessorStack extends Stack {
       timeout: Duration.seconds(30),
       environment: {
         METADATA_TABLE_NAME: metadataTableName,
+        DOCUMENT_NAME_TABLE: documentNameTableName,
       },
       logRetention: logs.RetentionDays.THREE_MONTHS,
       deadLetterQueue: lambdaDLQ,
@@ -595,9 +657,13 @@ export class SimplifiedDocProcessorStack extends Stack {
         resources: [
           `arn:aws:dynamodb:${this.region}:${this.account}:table/${metadataTableName}`,
           `arn:aws:dynamodb:${this.region}:${this.account}:table/${metadataTableName}/index/*`,
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${documentNameTableName}`,
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${documentNameTableName}/index/*`,
           // DR region access (if Lambda needs to access DR region directly)
           `arn:aws:dynamodb:${drRegion}:${this.account}:table/${metadataTableName}`,
           `arn:aws:dynamodb:${drRegion}:${this.account}:table/${metadataTableName}/index/*`,
+          `arn:aws:dynamodb:${drRegion}:${this.account}:table/${documentNameTableName}`,
+          `arn:aws:dynamodb:${drRegion}:${this.account}:table/${documentNameTableName}/index/*`,
         ],
       })
     );
@@ -725,6 +791,7 @@ export class SimplifiedDocProcessorStack extends Stack {
       environment: {
         DOCUMENTS_BUCKET: docsBucket.bucketName,
         KMS_KEY_ARN: encryptionKey.keyArn, // Pass KMS key ARN for presigned URL encryption
+        DOCUMENT_NAME_TABLE: documentNameTableName,
       },
       logRetention: logs.RetentionDays.THREE_MONTHS,
       deadLetterQueue: lambdaDLQ,
@@ -733,6 +800,17 @@ export class SimplifiedDocProcessorStack extends Stack {
     // Grant S3 put permissions for presigned URLs
     docsBucket.grantPut(uploadLambda);
     encryptionKey.grantEncryptDecrypt(uploadLambda);
+    
+    // Grant DynamoDB write permissions for document name mapping
+    uploadLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:PutItem"],
+        resources: [
+          `arn:aws:dynamodb:${this.region}:${this.account}:table/${documentNameTableName}`,
+          `arn:aws:dynamodb:${drRegion}:${this.account}:table/${documentNameTableName}`,
+        ],
+      })
+    );
 
     const uploadIntegration = new apigw.LambdaIntegration(uploadLambda);
 

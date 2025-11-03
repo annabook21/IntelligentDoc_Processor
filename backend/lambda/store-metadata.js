@@ -1,9 +1,12 @@
 const {
   DynamoDBClient,
   PutItemCommand,
+  QueryCommand,
 } = require("@aws-sdk/client-dynamodb");
+const { unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const TABLE_NAME = process.env.METADATA_TABLE_NAME;
+const DOCUMENT_NAME_TABLE = process.env.DOCUMENT_NAME_TABLE;
 
 const dynamodb = new DynamoDBClient();
 
@@ -47,8 +50,8 @@ const normalizeEntities = (entities = []) => {
 exports.handler = async (event) => {
   console.log("store-metadata event", JSON.stringify(event));
 
-  if (!TABLE_NAME) {
-    throw new Error("METADATA_TABLE_NAME environment variable is required");
+  if (!TABLE_NAME || !DOCUMENT_NAME_TABLE) {
+    throw new Error("METADATA_TABLE_NAME and DOCUMENT_NAME_TABLE environment variables are required");
   }
 
   const {
@@ -70,7 +73,40 @@ exports.handler = async (event) => {
     throw new Error("bucket and key are required");
   }
 
-  const documentId = `${bucket}/${key}`;
+  // Lookup friendly documentId and document name from the document-name mapping table
+  const s3Key = key;
+  let documentId = null;
+  let documentName = "Unknown Document";
+  
+  try {
+    const queryResult = await dynamodb.send(
+      new QueryCommand({
+        TableName: DOCUMENT_NAME_TABLE,
+        IndexName: "S3KeyIndex",
+        KeyConditionExpression: "s3Key = :s3Key",
+        ExpressionAttributeValues: {
+          ":s3Key": { S: s3Key },
+        },
+        Limit: 1,
+      })
+    );
+    
+    if (queryResult.Items && queryResult.Items.length > 0) {
+      const nameMapping = unmarshall(queryResult.Items[0]);
+      documentId = nameMapping.documentId;
+      documentName = nameMapping.documentName;
+      console.log(`Found document mapping: ${documentId} -> ${documentName}`);
+    } else {
+      console.warn(`No document name mapping found for S3 key: ${s3Key}`);
+      // Fallback: use S3 key as documentId (for documents uploaded before this feature)
+      documentId = `${bucket}/${key}`;
+    }
+  } catch (error) {
+    console.error(`Error querying document name table: ${error.message}`);
+    // Fallback: use S3 key as documentId
+    documentId = `${bucket}/${key}`;
+  }
+
   const now = new Date().toISOString();
   const textPreview = (text || "").substring(0, 10000);
   const normalizedEntities = normalizeEntities(entities);
@@ -83,6 +119,7 @@ exports.handler = async (event) => {
 
   const item = {
     documentId: { S: documentId },
+    documentName: { S: documentName }, // User-friendly document name
     processingDate: { S: now },
     language: { S: language || "unknown" },
     entities: { S: JSON.stringify(normalizedEntities) },

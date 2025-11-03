@@ -211,7 +211,7 @@ function Dashboard() {
             <table>
               <thead>
                 <tr>
-                  <th>Document ID</th>
+                  <th>Document Name</th>
                   <th>Status</th>
                   <th>Language</th>
                   <th>Processing Date</th>
@@ -221,7 +221,7 @@ function Dashboard() {
               <tbody>
                 {documents.slice(0, 20).map((doc) => (
                   <tr key={doc.documentId}>
-                    <td>{doc.documentId.substring(0, 20)}...</td>
+                    <td>{doc.documentName || "Unknown Document"}</td>
                     <td>
                       {doc.status === 'DUPLICATE' ? (
                         <span className="status-pill status-duplicate">
