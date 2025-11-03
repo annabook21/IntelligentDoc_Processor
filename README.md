@@ -1,251 +1,719 @@
 # Intelligent Document Processing Pipeline
 
-A simplified, production-ready serverless document processing pipeline built on AWS following the [AWS Intelligent Document Processing Workshop](https://catalog.workshops.aws/intelligent-document-processing/en-US) pattern. This solution automatically processes documents, extracts keywords, entities, locations, and phrases, detects languages, and stores extracted data in a searchable format.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![AWS](https://img.shields.io/badge/AWS-Serverless-orange)](https://aws.amazon.com/)
+[![CDK](https://img.shields.io/badge/AWS-CDK-blue)](https://aws.amazon.com/cdk/)
 
-## Overview
+A production-ready serverless document processing pipeline that automatically extracts intelligence from documents using AWS AI services. Upload documents, get instant insights powered by Amazon Textract, Comprehend, and Bedrock (Claude Sonnet 4.5).
 
-This pipeline processes documents (PDF, DOCX, images) uploaded to S3, automatically extracting:
-- **Text content** from documents using Amazon Textract
-- **Language** using Amazon Comprehend language detection
-- **Named entities** (people, places, organizations) using Amazon Comprehend
-- **Key phrases** using Amazon Comprehend
-- **Document summary** using Amazon Bedrock (Claude Sonnet 4.5)
-- **Intelligent insights** using Amazon Bedrock (Claude Sonnet 4.5)
-- **Structured data** extraction using Amazon Bedrock (dates, amounts, locations, organizations)
+## 🎯 Features
 
-The extracted data is stored in:
-- **DynamoDB** for structured metadata queries
-- **S3** for original document retention with cost-optimized lifecycle policies
+### Core Capabilities
+- ✅ **Automatic Processing** - Documents processed within seconds of upload
+- ✅ **Parallel Processing** - Handle thousands of documents concurrently
+- ✅ **Duplicate Detection** - SHA-256 hashing prevents redundant processing
+- ✅ **Multi-Language Support** - Automatic language detection
+- ✅ **Entity Extraction** - People, places, organizations, dates
+- ✅ **AI Summarization** - Claude Sonnet 4.5 generates summaries and insights
+- ✅ **Visualization Dashboard** - Interactive charts and analytics
+- ✅ **Document Viewer** - Full metadata and text preview
+- ✅ **Disaster Recovery** - DynamoDB Global Tables with multi-region replication
 
-## Architecture
+### Security & Compliance
+- 🔒 **End-to-End Encryption** - KMS encryption at rest, TLS in transit
+- 🔒 **Authentication** - AWS Cognito with hosted UI
+- 🔒 **Authorization** - IAM and Cognito authorizers on all APIs
+- 🔒 **Private by Default** - No public access to resources
+- 🔒 **Audit Trail** - CloudWatch logs and CloudTrail integration
 
-This solution follows the **AWS Workshop Pattern** - simple, direct, and efficient:
+### Cost Optimization
+- 💰 **Serverless** - Pay only for what you use
+- 💰 **S3 Lifecycle Policies** - Automatic archival (Intelligent-Tiering → Glacier → Deep Archive)
+- 💰 **DynamoDB On-Demand** - No capacity planning needed
+- 💰 **Duplicate Detection** - Skip expensive processing for duplicates
 
+**Estimated Cost:** ~$20-50/month for moderate usage (1,000 documents/month, 100GB storage)
+
+## 🏗️ Architecture
+
+### High-Level Overview
+
+```mermaid
+graph TB
+    subgraph "User Interface"
+        UI[React Frontend<br/>CloudFront + S3]
+        Auth[Cognito User Pool]
+    end
+
+    subgraph "API Layer"
+        APIGW[API Gateway<br/>REST API]
+        UploadLambda[Upload Handler<br/>Presigned URLs]
+        SearchLambda[Search Handler<br/>Metadata Queries]
+    end
+
+    subgraph "Processing Pipeline"
+        S3[S3 Bucket<br/>Document Storage]
+        EB[EventBridge<br/>Event Router]
+        SFN[Step Functions<br/>State Machine]
+        
+        subgraph "Lambda Functions"
+            CheckDup[Duplicate Check<br/>SHA-256 Hash]
+            TextractStart[Textract Start<br/>Async Job]
+            TextractStatus[Textract Status<br/>Poll & Extract]
+            Comprehend[Comprehend Analyze<br/>Entities & Phrases]
+            Bedrock[Bedrock Summarize<br/>Claude Sonnet 4.5]
+            StoreMetadata[Store Metadata<br/>DynamoDB Write]
+        end
+    end
+
+    subgraph "AI Services"
+        TXT[Amazon Textract<br/>Text Extraction]
+        COMP[Amazon Comprehend<br/>NLP Analysis]
+        BR[Amazon Bedrock<br/>Claude Sonnet 4.5]
+    end
+
+    subgraph "Data Storage"
+        DDB[(DynamoDB<br/>Global Table<br/>Metadata)]
+        DDB_DR[(DynamoDB<br/>DR Replica<br/>us-east-2)]
+        HashDB[(Hash Registry<br/>Global Table<br/>Duplicates)]
+        HashDB_DR[(Hash Registry<br/>DR Replica<br/>us-east-2)]
+    end
+
+    subgraph "Monitoring"
+        CW[CloudWatch<br/>Logs & Metrics]
+        Dashboard[CloudWatch<br/>Dashboard]
+        Alarms[CloudWatch<br/>Alarms]
+        DLQ[SQS DLQ<br/>Failed Jobs]
+    end
+
+    UI -->|Authenticate| Auth
+    UI -->|API Calls| APIGW
+    APIGW -->|Cognito Auth| Auth
+    APIGW -->|Upload| UploadLambda
+    APIGW -->|Search/Metadata| SearchLambda
+    
+    UploadLambda -->|Presigned URL| S3
+    SearchLambda -->|Query| DDB
+    
+    S3 -->|Object Created| EB
+    EB -->|Trigger| SFN
+    
+    SFN -->|1. Check Hash| CheckDup
+    CheckDup -->|Read/Write| HashDB
+    CheckDup -->|If Duplicate| StoreMetadata
+    CheckDup -->|If New| TextractStart
+    
+    TextractStart -->|Start Job| TXT
+    SFN -->|2. Wait 10s| TextractStatus
+    TextractStatus -->|Poll Status| TXT
+    TextractStatus -->|3. Extract Text| Comprehend
+    
+    Comprehend -->|Detect Language| COMP
+    Comprehend -->|Extract Entities| COMP
+    Comprehend -->|Extract Phrases| COMP
+    
+    Comprehend -->|4. Enrichment| Bedrock
+    Bedrock -->|Generate Summary| BR
+    Bedrock -->|Extract Insights| BR
+    
+    Bedrock -->|5. Store| StoreMetadata
+    StoreMetadata -->|Write| DDB
+    
+    DDB -.->|Replicate| DDB_DR
+    HashDB -.->|Replicate| HashDB_DR
+    
+    SFN -->|Errors| DLQ
+    SFN -->|Logs| CW
+    CW -->|Visualize| Dashboard
+    CW -->|Alert| Alarms
+    
+    style UI fill:#e1f5ff
+    style S3 fill:#ff9900
+    style SFN fill:#e7157b
+    style DDB fill:#527fff
+    style TXT fill:#ff9900
+    style COMP fill:#ff9900
+    style BR fill:#ff9900
+    style DLQ fill:#ff6b6b
 ```
-┌─────────────┐
-│ S3 Bucket   │ (Documents)
-└──────┬──────┘
-       │
-       ▼ EventBridge
-┌─────────────┐
-│ Lambda      │ Process Document
-│ Function    │
-└──────┬──────┘
-       │
-       ├─→ Textract (extract text)
-       ├─→ Comprehend (language)
-       ├─→ Comprehend (entities)
-       ├─→ Comprehend (key phrases)
-       ├─→ Bedrock Claude Sonnet 4.5 (summary, insights, structured data)
-       └─→ DynamoDB (store metadata)
+
+### Step Functions Workflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> PrepareInput: S3 Event
+    PrepareInput --> CheckDuplicate: Extract bucket/key
+    
+    CheckDuplicate --> IsDuplicate: Compute SHA-256
+    
+    IsDuplicate --> StoreDuplicate: Hash exists
+    IsDuplicate --> StartTextract: New document
+    
+    StoreDuplicate --> Success: Save duplicate metadata
+    
+    StartTextract --> WaitTextract: Async job started
+    WaitTextract --> GetTextractStatus: Wait 10 seconds
+    
+    GetTextractStatus --> CheckStatus: Poll job status
+    
+    CheckStatus --> WaitTextract: IN_PROGRESS
+    CheckStatus --> AnalyzeComprehend: SUCCEEDED
+    CheckStatus --> Failed: FAILED
+    
+    AnalyzeComprehend --> SummarizeBedrock: Extract entities & phrases
+    SummarizeBedrock --> StoreMetadata: Generate summary & insights
+    StoreMetadata --> Success: Save to DynamoDB
+    
+    Success --> [*]
+    Failed --> [*]: Error logged to DLQ
 ```
 
-### Core Components
+## 📋 Prerequisites
 
-1. **S3 Bucket**: Stores original documents, triggers processing on upload
-2. **EventBridge Rule**: Routes S3 events to Lambda
-3. **Lambda Function**: Orchestrates Textract + Comprehend processing
-4. **DynamoDB Table**: Stores extracted metadata with GSI for language queries
-5. **API Gateway**: REST API for searching metadata
+### Required Tools
+- **AWS CLI** - v2.x configured with credentials
+- **Node.js** - v22.9.0 or higher
+- **npm** - v10.x or higher
+- **AWS CDK CLI** - v2.x (`npm install -g aws-cdk`)
+- **Docker Desktop** - Required for Lambda bundling
 
-## Key Features
+### AWS Account Requirements
+1. **Bedrock Model Access** - Enable in AWS Console:
+   - Navigate to Amazon Bedrock Console
+   - Click **Model access** (bottom-left)
+   - Click **Manage model access**
+   - Enable: **Anthropic Claude Sonnet 4.5** (`anthropic.claude-sonnet-4-5-20250929-v1:0`)
 
-✅ **Automatic Processing**: No human intervention - documents processed automatically  
-✅ **Parallel Processing**: EventBridge enables concurrent document processing  
-✅ **Error Handling**: Dead Letter Queue captures failures with retry logic  
-✅ **Cost Optimization**: S3 lifecycle policies (Intelligent-Tiering → Glacier → Deep Archive)  
-✅ **Language Detection**: Automatic language detection for multi-language documents  
-✅ **Entity Extraction**: Extracts people, places, organizations, dates, etc.  
-✅ **Gen AI Enrichment**: Claude Sonnet 4.5 for document summarization and insights  
-✅ **Simple Architecture**: Direct Lambda → Textract → Comprehend → Bedrock → DynamoDB  
-✅ **Infrastructure as Code**: Fully deployable via AWS CDK  
-✅ **Monitoring**: CloudWatch dashboards and alarms  
+2. **Service Quotas** (Defaults usually sufficient):
+   - Lambda concurrent executions: 1000
+   - DynamoDB on-demand throughput: Enabled
+   - S3 bucket limit: Check current usage
 
-## Why This Simplified Architecture?
+3. **Permissions** - Your AWS user/role needs:
+   - CloudFormation full access
+   - IAM role creation
+   - S3, DynamoDB, Lambda, API Gateway, Cognito, CloudFront full access
+   - Bedrock InvokeModel permissions
 
-This follows the AWS Workshop pattern instead of using Bedrock Flows because:
-- **Bedrock Flows** are overkill for batch document processing (better for conversational AI)
-- **OpenSearch** isn't needed if you're only searching metadata (DynamoDB GSIs are sufficient)
-- **VPC** isn't required for serverless services unless your SCP explicitly requires it
-- **Direct Lambda** is simpler, faster to deploy, and easier to debug
+## 🚀 Quick Start
 
-For full-text search of document content, you can add OpenSearch later. For complex workflow logic, you can add Step Functions later. But start simple.
-
-## Prerequisites
-
-- **AWS CLI** installed and configured
-- **Node.js** ≥ 22.9.0 and npm
-- **AWS CDK CLI** v2: `npm install -g aws-cdk`
-- **Docker Desktop** (for Lambda bundling)
-- **Bedrock Model Access** enabled in your AWS account:
-  - `anthropic.claude-sonnet-4-5-20250929-v1:0` (for document summarization and insights)
-
-### Enable Bedrock Model Access
-
-1. Navigate to [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/home)
-2. Click **Model access** in bottom-left corner
-3. Click **Manage model access**
-4. Enable: **Anthropic Claude Sonnet 4.5**: `anthropic.claude-sonnet-4-5-20250929-v1:0`
-
-## Deployment
-
-### 1. Clone and Setup
-
+### 1. Clone Repository
 ```bash
 git clone https://github.com/annabook21/IntelligentDoc_Processor.git
 cd IntelligentDoc_Processor/backend
 npm install
 ```
 
-### 2. Bootstrap AWS CDK
-
+### 2. Bootstrap AWS CDK (First-time only)
 ```bash
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-REGION=us-west-2  # or your preferred region
+REGION=us-west-2  # Change to your preferred region
 cdk bootstrap aws://$ACCOUNT/$REGION
 ```
 
 ### 3. Deploy Stack
-
 ```bash
-cdk deploy SimplifiedDocProcessorStack
+# Ensure Docker Desktop is running
+cdk deploy SimplifiedDocProcessorStack --require-approval never
 ```
 
-The deployment creates:
-- S3 bucket for documents
-- DynamoDB table with GSI
-- Lambda function for document processing
-- Lambda function for search API
-- API Gateway with endpoints
-- CloudWatch dashboard and alarms
+**Deployment time:** ~8-10 minutes
 
-### 4. Note Deployment Outputs
+### 4. Save Outputs
+After deployment, note these critical outputs:
+```
+DocumentsBucketName = intelligent-docs-<account>-<region>
+CloudFrontURL = https://d1234567890abc.cloudfront.net
+APIEndpoint = https://abc123.execute-api.us-west-2.amazonaws.com/prod/
+UserPoolId = us-west-2_AbCdEfGhI
+```
 
-After deployment, note the outputs:
-- `DocumentsBucketName` - Upload documents here
-- `APIEndpoint` - API Gateway URL
-- `DashboardName` - CloudWatch dashboard
+### 5. Create User Account
+```bash
+# Get User Pool ID from deployment outputs
+USER_POOL_ID="us-west-2_AbCdEfGhI"
 
-## Usage
+# Create user
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username your-email@example.com \
+  --user-attributes Name=email,Value=your-email@example.com Name=email_verified,Value=true \
+  --temporary-password TempPassword123! \
+  --message-action SUPPRESS
+
+# Set permanent password
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username your-email@example.com \
+  --password YourSecurePassword123! \
+  --permanent
+```
+
+### 6. Access Application
+1. Open the CloudFront URL in your browser
+2. Sign in with your credentials
+3. Upload documents via the Upload page
+4. View processed documents in the Dashboard
+
+## 📊 Usage
 
 ### Upload Documents
 
-Upload documents to the S3 bucket:
+#### Via Web Interface
+1. Navigate to **Upload** page
+2. Drag & drop files or click to select
+3. Click **Upload Document**
+4. Processing starts automatically
 
+#### Via AWS CLI
 ```bash
-aws s3 cp document.pdf s3://<DocumentsBucketName>/
+BUCKET_NAME="intelligent-docs-<account>-<region>"
+aws s3 cp document.pdf s3://$BUCKET_NAME/uploads/
 ```
 
-Documents are automatically processed via the pipeline.
+#### Supported Formats
+- PDF (including scanned/multi-page)
+- DOCX
+- PNG, JPG, JPEG
+- TIFF
 
 ### Search Documents
 
-#### Search by Language
+#### Via Web Interface
+- **Dashboard** - View all processed documents with statistics
+- **Search** - Filter by language, date, or content
+- **View Details** - Click any document to see full metadata
+
+#### Via API
+```bash
+API_ENDPOINT="https://abc123.execute-api.us-west-2.amazonaws.com/prod"
+TOKEN="<cognito-id-token>"
+
+# Search all documents
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API_ENDPOINT/search"
+
+# Search by language
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API_ENDPOINT/search?language=en&limit=10"
+
+# Get document metadata
+DOCUMENT_ID="intelligent-docs-123456-uswest2/uploads/document.pdf"
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API_ENDPOINT/metadata?documentId=$DOCUMENT_ID"
+```
+
+### Monitor Processing
+
+#### CloudWatch Dashboard
+1. Go to CloudWatch Console
+2. Navigate to **Dashboards**
+3. Open: `doc-processor-metrics-<region>`
+
+**Metrics Available:**
+- Document processing rate
+- Step Functions execution status
+- Lambda invocation counts and errors
+- API Gateway request/error rates
+- DynamoDB read/write capacity
+
+#### Check for Failures
+```bash
+# Get DLQ URL from outputs
+DLQ_URL="https://sqs.us-west-2.amazonaws.com/123456789/lambda-dlq-us-west-2"
+
+# Check for failed messages
+aws sqs receive-message --queue-url $DLQ_URL --max-number-of-messages 10
+```
+
+#### View Logs
+```bash
+# Step Functions logs
+aws logs tail /aws/vendedlogs/states/doc-processing-us-west-2 --follow
+
+# Lambda logs
+aws logs tail /aws/lambda/doc-duplicate-check-us-west-2 --follow
+aws logs tail /aws/lambda/doc-textract-start-us-west-2 --follow
+aws logs tail /aws/lambda/doc-comprehend-us-west-2 --follow
+aws logs tail /aws/lambda/doc-bedrock-us-west-2 --follow
+```
+
+## 🔍 How It Works
+
+### Document Processing Flow
+
+1. **Upload** - Document uploaded to S3 bucket
+2. **Event Trigger** - S3 sends event to EventBridge
+3. **Duplicate Check** - Lambda computes SHA-256 hash
+   - If duplicate: Skip processing, store minimal metadata
+   - If new: Continue to step 4
+4. **Text Extraction** - Amazon Textract extracts text (async for multi-page PDFs)
+5. **Language Detection** - Amazon Comprehend detects language
+6. **Entity Extraction** - Amazon Comprehend extracts:
+   - People (PERSON)
+   - Places (LOCATION)
+   - Organizations (ORGANIZATION)
+   - Dates (DATE)
+   - Other entities (COMMERCIAL_ITEM, EVENT, QUANTITY, etc.)
+7. **Key Phrases** - Amazon Comprehend extracts important phrases
+8. **AI Enrichment** - Amazon Bedrock (Claude Sonnet 4.5):
+   - Generates 2-3 sentence summary
+   - Extracts key insights
+   - Structures data (dates, amounts, names, locations, organizations)
+9. **Storage** - Metadata saved to DynamoDB with GSI for language queries
+10. **Replication** - Data automatically replicates to DR region (us-east-2)
+
+### Duplicate Detection
+
+Documents are identified by content hash (SHA-256):
+- **First upload**: Hash stored in registry, full processing
+- **Subsequent uploads**: Detected as duplicate, processing skipped
+- **Metadata**: Duplicate documents show reference to original
+- **Cost savings**: Avoid redundant Textract/Comprehend/Bedrock calls
+
+**Example:**
+```
+Document 1: report.pdf → Hash: abc123... → Process fully
+Document 2: report_v2.pdf (same content) → Hash: abc123... → Duplicate detected!
+```
+
+### Data Storage
+
+#### DynamoDB Tables
+
+**Metadata Table** (`document-metadata-<region>`)
+```
+Primary Key: documentId (String) - S3 bucket/key path
+Sort Key: processingDate (String) - ISO timestamp
+Attributes:
+  - language: String
+  - entities: String (JSON array)
+  - keyPhrases: String (JSON array)
+  - summary: String
+  - insights: String
+  - structuredData: String (JSON object)
+  - text: String (first 10k characters)
+  - fullTextLength: Number
+  - status: String (PROCESSED | DUPLICATE)
+  - duplicateOf: String (optional - original documentId)
+  - contentHash: String (SHA-256)
+GSI: LanguageIndex (language + processingDate)
+```
+
+**Hash Registry** (`document-hash-registry-<region>`)
+```
+Primary Key: contentHash (String) - SHA-256 hash
+Attributes:
+  - firstDocumentId: String
+  - firstSeen: String (ISO timestamp)
+  - latestDocumentId: String
+  - lastSeen: String (ISO timestamp)
+  - occurrences: Number
+```
+
+Both tables are **Global Tables** with replicas in us-east-2 for disaster recovery.
+
+## 🛠️ Advanced Configuration
+
+### Environment Variables
+
+You can customize the deployment by setting environment variables before `cdk deploy`:
 
 ```bash
-curl "https://<APIEndpoint>/search?language=en&limit=10"
+# Set DR region (default: us-east-2)
+export DR_REGION=eu-west-1
+
+# Deploy
+cdk deploy SimplifiedDocProcessorStack
+```
+
+### Bedrock Model Selection
+
+To use a different Claude model, update `backend/lib/simplified-doc-processor-stack.ts`:
+
+```typescript
+const bedrockLambda = new NodejsFunction(this, "BedrockSummarize", {
+  // ...
+  environment: {
+    BEDROCK_MODEL_ID: "anthropic.claude-3-5-sonnet-20241022-v2:0", // Change here
+  },
+});
+```
+
+### S3 Lifecycle Customization
+
+Modify `backend/lib/simplified-doc-processor-stack.ts`:
+
+```typescript
+docsBucket.addLifecycleRule({
+  transitions: [
+    { storageClass: s3.StorageClass.INTELLIGENT_TIERING, transitionAfter: Duration.days(30) },
+    { storageClass: s3.StorageClass.GLACIER, transitionAfter: Duration.days(90) },
+    { storageClass: s3.StorageClass.DEEP_ARCHIVE, transitionAfter: Duration.days(365) },
+  ],
+});
+```
+
+### DynamoDB Capacity Mode
+
+The stack uses **On-Demand** mode by default. To switch to **Provisioned**:
+
+```typescript
+const globalTable = new CfnGlobalTable(this, "MetadataGlobalTable", {
+  billingMode: "PROVISIONED", // Change from PAY_PER_REQUEST
+  writeCapacityUnits: 5,
+  readCapacityUnits: 5,
+  // ...
+});
+```
+
+## 🧹 Maintenance
+
+### Cleanup Old Resources
+
+If you deployed previous versions, cleanup scripts are provided:
+
+```bash
+cd backend/scripts
+
+# Dry run - see what would be deleted
+./cleanup-old-buckets.sh
+./cleanup-old-tables.sh
+
+# Actually delete
+./cleanup-old-buckets.sh --execute
+./cleanup-old-tables.sh --execute
+
+# Force delete versioned buckets
+./force-delete-buckets.sh bucket-name-1 bucket-name-2
+```
+
+### Update Stack
+
+```bash
+cd backend
+git pull
+npm install
+cdk deploy SimplifiedDocProcessorStack
+```
+
+### Rollback Deployment
+
+```bash
+# List CloudFormation stacks
+aws cloudformation list-stacks --query "StackSummaries[?StackName=='SimplifiedDocProcessorStack'].StackName"
+
+# Rollback to previous version
+aws cloudformation cancel-update-stack --stack-name SimplifiedDocProcessorStack
+```
+
+## 🔒 Security Best Practices
+
+### Implemented by Default
+- ✅ KMS encryption for S3, DynamoDB, SQS, Lambda environment variables
+- ✅ TLS 1.2+ for all API communications
+- ✅ Cognito authentication with password policies
+- ✅ IAM least privilege policies
+- ✅ S3 bucket policies blocking public access
+- ✅ CloudTrail logging enabled
+- ✅ VPC endpoints for S3/DynamoDB (if VPC deployed)
+
+### Additional Recommendations
+1. **Enable MFA** for Cognito users
+2. **Rotate KMS keys** annually
+3. **Review CloudTrail logs** regularly
+4. **Set up AWS Config** for compliance monitoring
+5. **Enable GuardDuty** for threat detection
+6. **Use AWS WAF** on API Gateway/CloudFront (if required)
+
+## 💰 Cost Breakdown
+
+**Monthly costs for 1,000 documents (average 5 pages each):**
+
+| Service | Usage | Cost |
+|---------|-------|------|
+| S3 Storage | 100GB | $2.30 |
+| S3 Requests | 1,000 PUT, 10,000 GET | $0.01 |
+| Lambda | 1,000 invocations × 6 functions | $0.20 |
+| Textract | 5,000 pages | $7.50 |
+| Comprehend | 5,000 units (language + entities) | $0.50 |
+| Bedrock | 1,000 requests × 10k tokens avg | $30.00 |
+| DynamoDB | 5,000 writes, 10,000 reads | $1.50 |
+| API Gateway | 10,000 requests | $0.35 |
+| CloudFront | 50GB transfer | $4.25 |
+| CloudWatch | 10GB logs, 10 alarms | $5.00 |
+| **Total** | | **~$51.61** |
+
+**Cost savings with duplicate detection:**
+- 10% duplicate rate: Save $3.80/month
+- 25% duplicate rate: Save $9.50/month
+
+**Free Tier eligible** for the first 12 months (significant savings on Lambda, DynamoDB, S3).
+
+## 📚 API Reference
+
+### Authentication
+
+All API endpoints require authentication via Cognito ID token:
+
+```bash
+# Get token (after signing in via UI)
+TOKEN=$(aws cognito-idp initiate-auth \
+  --auth-flow USER_PASSWORD_AUTH \
+  --client-id $USER_POOL_CLIENT_ID \
+  --auth-parameters USERNAME=$USERNAME,PASSWORD=$PASSWORD \
+  --query 'AuthenticationResult.IdToken' \
+  --output text)
+```
+
+### Endpoints
+
+#### Upload Document
+```http
+POST /upload
+Authorization: Bearer <cognito-id-token>
+Content-Type: application/json
+
+{
+  "fileName": "document.pdf",
+  "fileType": "application/pdf"
+}
+
+Response:
+{
+  "uploadUrl": "https://...",
+  "key": "uploads/document.pdf"
+}
+```
+
+#### Search Documents
+```http
+GET /search?language=en&limit=10&offset=0
+Authorization: Bearer <cognito-id-token>
+
+Response:
+{
+  "documents": [...],
+  "count": 10,
+  "limit": 10,
+  "offset": 0
+}
 ```
 
 #### Get Document Metadata
+```http
+GET /metadata?documentId=bucket/key/document.pdf
+Authorization: Bearer <cognito-id-token>
 
-```bash
-curl "https://<APIEndpoint>/metadata/<documentId>"
+Response:
+{
+  "documentId": "...",
+  "processingDate": "2025-11-03T19:01:35Z",
+  "language": "en",
+  "entities": [...],
+  "keyPhrases": [...],
+  "summary": "...",
+  "insights": "...",
+  "structuredData": {...},
+  "status": "PROCESSED",
+  "contentHash": "abc123..."
+}
 ```
 
-Note: Replace `<documentId>` with the full S3 key, e.g., `bucket-name/path/to/document.pdf`
-
-#### Health Check
-
-```bash
-curl "https://<APIEndpoint>/health"
-```
-
-## Cost Optimization
-
-The solution implements several cost optimization strategies:
-
-1. **S3 Lifecycle Policies**: 
-   - Intelligent-Tiering after 30 days
-   - Glacier after 90 days
-   - Deep Archive after 365 days
-
-2. **DynamoDB On-Demand**: Pay per request, no capacity planning needed
-
-3. **Serverless Architecture**: Pay only for what you use (Lambda invocations, API Gateway requests)
-
-Estimated cost: ~$20-50/month for moderate usage (1000 documents/month, 100GB storage)
-
-## Security
-
-- **Encryption**: All data encrypted at rest (S3, DynamoDB with KMS) and in transit (HTTPS)
-- **IAM**: Least privilege access policies
-- **Access Control**: Private S3 bucket, no public access
-- **API Authentication**: IAM authentication on search endpoints (can add Cognito if needed)
-
-## Monitoring
-
-Access the CloudWatch dashboard:
-1. Go to CloudWatch Console
-2. Navigate to Dashboards
-3. Open dashboard: `doc-processor-metrics-<region>`
-
-### Key Metrics
-- Document processing rate
-- Failed documents (DLQ)
-- API Gateway request/error rates
-
-### Alarms
-- DLQ messages (any failure triggers alert)
-- Lambda errors
-- SNS notifications sent to subscribed email/SMS
-
-## Architecture Comparison
-
-### Simplified (Current)
-- ✅ Lambda → Textract → Comprehend → DynamoDB
-- ✅ ~200 lines of CDK
-- ✅ Fast deployment
-- ✅ Easy to debug
-- ✅ Lower cost
-
-### Previous (Over-Engineered)
-- ❌ EventBridge → Lambda → Bedrock Flow → Textract/Comprehend → DynamoDB/OpenSearch
-- ❌ ~400+ lines of CDK
-- ❌ Complex VPC setup
-- ❌ Slower deployment
-- ❌ Harder to debug
-- ❌ Higher cost
-
-## When to Add Complexity
-
-Only add if you actually need:
-
-- **OpenSearch**: Only if you need full-text search of document content (not just metadata)
-- **Step Functions**: Only if you need complex workflow logic with conditional branching
-- **Bedrock Flows**: Only if you need conversational AI workflows
-- **VPC**: Only if your SCP explicitly requires it for all resources
-
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Documents Not Processing
 
-1. Check EventBridge rule: Verify S3 events are being sent
-2. Check DLQ for failures: `aws sqs receive-message --queue-url <dlq-url>`
-3. Check CloudWatch Logs: `/aws/lambda/doc-processor-<region>`
+**Symptoms:** Documents uploaded but no metadata appears in dashboard
 
-### API Gateway Issues
+**Checks:**
+1. Verify EventBridge rule is enabled:
+   ```bash
+   aws events list-rules --name-prefix DocumentProcessingRule
+   ```
 
-1. Verify endpoint: Check deployment outputs
-2. Check IAM permissions for API calls
-3. Verify DynamoDB table exists
+2. Check Step Functions execution:
+   ```bash
+   aws stepfunctions list-executions \
+     --state-machine-arn arn:aws:states:us-west-2:ACCOUNT:stateMachine:doc-processing-us-west-2 \
+     --max-results 10
+   ```
 
-## References
+3. Check DLQ for errors:
+   ```bash
+   aws sqs receive-message --queue-url $DLQ_URL
+   ```
 
-- [AWS Intelligent Document Processing Workshop](https://catalog.workshops.aws/intelligent-document-processing/en-US)
-- [Amazon Textract Documentation](https://docs.aws.amazon.com/textract/)
-- [Amazon Comprehend Documentation](https://docs.aws.amazon.com/comprehend/)
-- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
+4. Review CloudWatch Logs:
+   ```bash
+   aws logs tail /aws/vendedlogs/states/doc-processing-us-west-2 --follow
+   ```
 
-## License
+### CORS Errors in Frontend
 
-MIT License - see [LICENSE](LICENSE) file.
+**Symptoms:** API calls fail with CORS errors
+
+**Solution:**
+1. Ensure you're accessing via CloudFront URL (not direct S3 URL)
+2. Check API Gateway CORS settings:
+   ```bash
+   aws apigateway get-integration \
+     --rest-api-id $API_ID \
+     --resource-id $RESOURCE_ID \
+     --http-method OPTIONS
+   ```
+
+### Authentication Issues
+
+**Symptoms:** "Amplify has not been configured" or sign-in failures
+
+**Solution:**
+1. Clear browser cache and cookies
+2. Check `config.json` is deployed to S3:
+   ```bash
+   aws s3 cp s3://$FRONTEND_BUCKET/config.json -
+   ```
+3. Verify Cognito User Pool and Client exist
+
+### Textract Failures
+
+**Symptoms:** "InvalidS3ObjectException" or "UnsupportedDocumentException"
+
+**Common causes:**
+- Encrypted PDFs: Textract cannot process password-protected files
+- Unsupported format: Textract supports PDF, PNG, JPG, TIFF only
+- File size: Maximum 500MB per file
+- Permissions: Verify Textract has S3 GetObject permission
+
+**Solution:**
+Check Step Functions execution history for detailed error messages.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [AWS Intelligent Document Processing Workshop](https://catalog.workshops.aws/intelligent-document-processing)
+- [AWS Solutions Architect Best Practices](https://aws.amazon.com/architecture/)
+- AWS CDK Team for the excellent IaC framework
+
+## 📞 Support
+
+- **Issues:** [GitHub Issues](https://github.com/annabook21/IntelligentDoc_Processor/issues)
+- **Documentation:** [AWS Documentation](https://docs.aws.amazon.com/)
+- **Community:** [AWS re:Post](https://repost.aws/)
+
+---
+
+**Built with ❤️ using AWS Serverless**
