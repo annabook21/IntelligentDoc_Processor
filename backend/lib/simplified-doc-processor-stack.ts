@@ -529,8 +529,8 @@ export class SimplifiedDocProcessorStack extends Stack {
         key: sfn.JsonPath.stringAt("$.key"),
         text: sfn.JsonPath.stringAt("$.textractStatus.Payload.text"),
         language: sfn.JsonPath.stringAt("$.comprehend.Payload.language"),
-        entities: sfn.JsonPath.stringAt("$.comprehend.Payload.entities"),
-        keyPhrases: sfn.JsonPath.stringAt("$.comprehend.Payload.keyPhrases"),
+        entities: sfn.JsonPath.objectAt("$.comprehend.Payload.entities"), // Changed from stringAt to objectAt to preserve array structure
+        keyPhrases: sfn.JsonPath.objectAt("$.comprehend.Payload.keyPhrases"), // Changed from stringAt to objectAt to preserve array structure
         summary: sfn.JsonPath.stringAt("$.bedrock.Payload.summary"),
         insights: sfn.JsonPath.stringAt("$.bedrock.Payload.insights"),
         structuredData: sfn.JsonPath.stringAt("$.bedrock.Payload.structuredData"),
