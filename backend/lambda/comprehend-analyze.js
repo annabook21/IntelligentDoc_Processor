@@ -36,6 +36,9 @@ exports.handler = async (event) => {
     })
   );
 
+  // DEBUG: Log raw Comprehend response
+  console.log("Raw Comprehend entities (first 3):", JSON.stringify(entitiesResponse.Entities?.slice(0, 3)));
+
   let keyPhrases = [];
   try {
     const phrasesResponse = await comprehend.send(
@@ -50,10 +53,16 @@ exports.handler = async (event) => {
     keyPhrases = [];
   }
 
-  return {
+  const result = {
     language,
     entities: entitiesResponse.Entities || [],
     keyPhrases,
   };
+
+  // DEBUG: Log what we're returning
+  console.log("Comprehend returning entities count:", result.entities.length);
+  console.log("First entity structure:", JSON.stringify(result.entities[0]));
+
+  return result;
 };
 

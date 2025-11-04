@@ -109,8 +109,15 @@ exports.handler = async (event) => {
 
   const now = new Date().toISOString();
   const textPreview = (text || "").substring(0, 10000);
+  
+  // DEBUG: Log what we received
+  console.log("store-metadata received entities (first 3):", JSON.stringify(entities?.slice(0, 3)));
+  
   const normalizedEntities = normalizeEntities(entities);
   const normalizedKeyPhrases = normalizeKeyPhrases(keyPhrases);
+  
+  // DEBUG: Log what we normalized
+  console.log("store-metadata normalized entities (first 3):", JSON.stringify(normalizedEntities?.slice(0, 3)));
 
   const safeSummary = typeof summary === "string" ? summary : JSON.stringify(summary || "");
   const safeInsights = typeof insights === "string" ? insights : JSON.stringify(insights || "");

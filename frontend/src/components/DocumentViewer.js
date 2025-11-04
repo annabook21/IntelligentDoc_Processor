@@ -79,6 +79,10 @@ function DocumentViewer() {
     ? JSON.parse(document.entities || '[]') 
     : document.entities || [];
   
+  // DEBUG: Log entity structure
+  console.log('DocumentViewer entities (first 3):', entities.slice(0, 3));
+  console.log('First entity keys:', entities[0] ? Object.keys(entities[0]) : 'no entities');
+  
   const keyPhrases = typeof document.keyPhrases === 'string'
     ? JSON.parse(document.keyPhrases || '[]')
     : document.keyPhrases || [];
@@ -135,10 +139,10 @@ function DocumentViewer() {
           <div className="entities-list">
             {entities.map((entity, index) => (
               <div key={index} className="entity-item">
-                <span className="entity-type">{entity.Type || 'UNKNOWN'}</span>
-                <span className="entity-text">{entity.Text || entity.text || 'N/A'}</span>
-                {entity.Score && (
-                  <span className="entity-score">{(entity.Score * 100).toFixed(1)}%</span>
+                <span className="entity-type">{entity.type || entity.Type || 'UNKNOWN'}</span>
+                <span className="entity-text">{entity.text || entity.Text || 'N/A'}</span>
+                {(entity.score || entity.Score) && (
+                  <span className="entity-score">{((entity.score || entity.Score) * 100).toFixed(1)}%</span>
                 )}
               </div>
             ))}

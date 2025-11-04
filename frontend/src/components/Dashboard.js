@@ -101,7 +101,7 @@ function Dashboard() {
         try {
           const entities = typeof doc.entities === 'string' ? JSON.parse(doc.entities) : doc.entities || [];
           entities.forEach((entity) => {
-            const type = entity.Type || 'OTHER';
+            const type = entity.type || entity.Type || 'OTHER';
             entityTypeCounts[type] = (entityTypeCounts[type] || 0) + 1;
           });
         } catch (e) {
