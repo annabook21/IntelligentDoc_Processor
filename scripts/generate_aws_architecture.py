@@ -1,92 +1,98 @@
 from diagrams import Diagram, Cluster, Edge
-from diagrams.aws.general import Client, Generic
+from diagrams.aws.general import Users, General
 from diagrams.aws.network import CloudFront, APIGateway
 from diagrams.aws.storage import S3
 from diagrams.aws.security import Cognito
 from diagrams.aws.compute import Lambda
-from diagrams.aws.integration import Eventbridge
+from diagrams.aws.integration import Eventbridge, StepFunctions
 from diagrams.aws.management import Cloudwatch
 from diagrams.aws.database import Dynamodb
 
 
 def main() -> None:
-    # Render a PNG with a white background and a wide layout suitable for docs
+    # Render a PNG with a white background, top-to-bottom layout, and AWS reference style
     with Diagram(
-        "AWS Intelligent Document Processor",
+        "",  # No title at the top
         show=False,
         filename="images/aws-style-architecture",
         outformat="png",
         graph_attr={
-            "bgcolor": "white",
-            "rankdir": "LR",
+            "bgcolor": "transparent",
+            "rankdir": "TB",
             "pad": "0.5",
-            "nodesep": "0.5",
-            "ranksep": "1.0",
+            "nodesep": "1.0",
+            "ranksep": "1.5",
+            "splines": "ortho", # Use straight lines
         },
+        node_attr={
+            "fontsize": "12",
+        }
     ):
-        user = Client("Users")
+        user = Users("Users")
 
-        with Cluster("Web UI component"):
-            cf = CloudFront("Amazon CloudFront\n(1)")
-            s3_frontend = S3("S3 Frontend Bucket")
-            cognito = Cognito("Amazon Cognito\n(2)")
-            cf >> s3_frontend
+        with Cluster("AWS Cloud"):
+            with Cluster("Web UI component"):
+                cf = CloudFront("Amazon CloudFront")
+                s3_frontend = S3("S3 WebUIBucket")
+                cognito = Cognito("Amazon Cognito")
 
-        with Cluster("API component"):
-            apigw = APIGateway("API Gateway\n(3)")
-            upload = Lambda("upload-handler\n(4)")
-            search = Lambda("search-handler\n(12)")
-            apigw >> upload
-            apigw >> search
+            with Cluster("API component"):
+                apigw = APIGateway("API Gateway")
+                upload_lambda = Lambda("Upload Function")
+                search_lambda = Lambda("Search Function")
+                apigw >> Edge(label="triggers") >> upload_lambda
+                apigw >> Edge(label="triggers") >> search_lambda
 
-        with Cluster("Storage & DR"):
-            ddb_meta = Dynamodb("document-metadata\n(Global Table)")
-            ddb_hash = Dynamodb("document-hash-registry")
-            ddb_names = Dynamodb("document-names")
+            with Cluster("Storage & DR component"):
+                ddb_meta = Dynamodb("DynamoDB\nMetadata Table")
+                ddb_hash = Dynamodb("DynamoDB\nHash Registry")
+                ddb_names = Dynamodb("DynamoDB\nDocument Names")
 
-        with Cluster("Processing pipeline"):
-            s3_docs = S3("S3 Documents Bucket")
-            evb = Eventbridge("EventBridge\n(6)")
-            sfn = Generic("Step Functions\nstate machine")
-            dup = Lambda("check-duplicate\n(7)")
-            textract_start = Lambda("textract-start\n(8)")
-            textract = Generic("Amazon Textract")
-            textract_status = Lambda("textract-status")
-            comprehend_fn = Lambda("comprehend-analyze\n(9)")
-            comprehend = Generic("Amazon Comprehend")
-            bedrock_fn = Lambda("bedrock-summarize\n(10)")
-            bedrock = Generic("Amazon Bedrock")
-            store = Lambda("store-metadata\n(11)")
+            with Cluster("Document processing component"):
+                s3_docs = S3("S3 DocumentsBucket")
+                evb = Eventbridge("EventBridge")
+                sfn = StepFunctions("Step Functions")
 
-            s3_docs >> Edge(label="ObjectCreated") >> evb >> sfn
-            sfn >> dup
-            dup >> Edge(label="duplicate") >> store
-            dup >> Edge(label="unique") >> textract_start >> textract >> textract_status
-            textract_status >> comprehend_fn >> comprehend >> bedrock_fn >> bedrock >> store
+                # Lambdas within the Step Function
+                dup_lambda = Lambda("Check Duplicate")
+                textract_lambda = Lambda("Textract")
+                comprehend_lambda = Lambda("Comprehend")
+                bedrock_lambda = Lambda("Bedrock")
+                store_lambda = Lambda("Store Metadata")
 
-            store >> ddb_meta
-            store >> ddb_names
-            dup >> ddb_hash
+            with Cluster("AI Services"):
+                 textract_svc = General("Amazon Textract")
+                 comprehend_svc = General("Amazon Comprehend")
+                 bedrock_svc = General("Amazon Bedrock")
 
-        with Cluster("Observability"):
-            cw = Cloudwatch("CloudWatch\n(13)")
+            with Cluster("Observability component"):
+                cw = Cloudwatch("CloudWatch Logs")
 
-        # Flows and auth
-        user >> Edge(label="(1)") >> cf
-        cf >> Edge(label="UI") >> s3_frontend
-        user >> Edge(style="dashed", label="sign-in (2)") >> cognito
-        apigw >> Edge(style="dashed", label="Cognito authorizer") >> cognito
+            # Define the flow with numbered labels on edges
+            user >> Edge(label="1") >> cf >> s3_frontend
+            user >> Edge(label="2", style="dashed") >> cognito
+            cf >> Edge(label="3") >> apigw
+            apigw >> Edge(label="4") >> upload_lambda
+            upload_lambda >> Edge(label="returns presigned URL") >> user
+            user >> Edge(label="5") >> s3_docs
 
-        upload >> Edge(label="presigned URL (4)")
-        user >> Edge(label="PUT (5)") >> s3_docs
+            s3_docs >> Edge(label="6") >> evb >> sfn
 
-        # Search path
-        search >> ddb_meta
-        search >> ddb_names
+            # Step Function Flow
+            sfn >> Edge(label="7") >> dup_lambda >> ddb_hash
+            dup_lambda >> Edge(label="if unique", style="dashed") >> textract_lambda
+            textract_lambda >> Edge(label="8") >> textract_svc
+            textract_lambda >> Edge(label="9") >> comprehend_lambda >> comprehend_svc
+            comprehend_lambda >> Edge(label="10") >> bedrock_lambda >> bedrock_svc
+            bedrock_lambda >> Edge(label="11") >> store_lambda
+            dup_lambda >> Edge(label="if duplicate", style="dashed") >> store_lambda
+            store_lambda >> [ddb_meta, ddb_names]
 
-        # Logs
-        for n in [upload, search, dup, textract_start, textract_status, comprehend_fn, bedrock_fn, store, apigw, sfn]:
-            n >> cw
+            # Search/Dashboard Flow
+            apigw >> Edge(label="12") >> search_lambda >> [ddb_meta, ddb_names]
+
+            # Logging
+            [sfn, upload_lambda, search_lambda, dup_lambda, textract_lambda, comprehend_lambda, bedrock_lambda, store_lambda] >> Edge(label="13", style="dotted") >> cw
 
 
 if __name__ == "__main__":
