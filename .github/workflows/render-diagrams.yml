@@ -1,10 +1,11 @@
-name: Render architecture diagrams
+name: Render architecture diagrams (AWS icons)
 
 on:
   push:
     branches: [ waf-high-priority-fixes, main ]
     paths:
-      - 'images/**/*.mmd'
+      - 'scripts/generate_aws_architecture.py'
+      - '.github/workflows/render-diagrams.yml'
 
 permissions:
   contents: write
@@ -16,32 +17,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Mermaid CLI
+      - name: Install Graphviz
         run: |
-          npm i -g @mermaid-js/mermaid-cli@10.9.1
+          sudo apt-get update
+          sudo apt-get install -y graphviz
 
-      - name: Render .mmd to .png
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install diagrams==0.23.3
+
+      - name: Render AWS diagram to PNG
         run: |
           mkdir -p images
-          for f in images/*.mmd; do
-            [ -f "$f" ] || continue
-            out="${f%.mmd}.png"
-            echo "Rendering $f -> $out"
-            mmdc -i "$f" -o "$out" --backgroundColor white --scale 1.2 || true
-          done
+          python scripts/generate_aws_architecture.py
 
-      - name: Commit PNGs
+      - name: Commit PNG
         run: |
-          if git status --porcelain | grep -q "images/.*\.png"; then
+          if git status --porcelain | grep -q "images/aws-style-architecture.png"; then
             git config user.name "github-actions"
             git config user.email "actions@github.com"
-            git add images/*.png
-            git commit -m "chore(diagrams): render PNGs from Mermaid sources"
+            git add images/aws-style-architecture.png
+            git commit -m "chore(diagrams): render AWS icon PNG"
             git push
           else
             echo "No PNG changes to commit"
