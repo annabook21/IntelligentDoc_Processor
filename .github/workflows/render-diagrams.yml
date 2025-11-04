@@ -1,0 +1,49 @@
+name: Render architecture diagrams
+
+on:
+  push:
+    branches: [ waf-high-priority-fixes, main ]
+    paths:
+      - 'images/**/*.mmd'
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Mermaid CLI
+        run: |
+          npm i -g @mermaid-js/mermaid-cli@10.9.1
+
+      - name: Render .mmd to .png
+        run: |
+          mkdir -p images
+          for f in images/*.mmd; do
+            [ -f "$f" ] || continue
+            out="${f%.mmd}.png"
+            echo "Rendering $f -> $out"
+            mmdc -i "$f" -o "$out" --backgroundColor white --scale 1.2 || true
+          done
+
+      - name: Commit PNGs
+        run: |
+          if git status --porcelain | grep -q "images/.*\.png"; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add images/*.png
+            git commit -m "chore(diagrams): render PNGs from Mermaid sources"
+            git push
+          else
+            echo "No PNG changes to commit"
+          fi
+

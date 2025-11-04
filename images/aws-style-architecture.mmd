@@ -1,0 +1,70 @@
+flowchart LR
+  %% AWS-style grouped components and numbered flow
+  %% 1) User -> CloudFront -> S3 (UI)
+  %% 2) Cognito auth
+  %% 3) API Gateway (Cognito Authorizer)
+  %% 4) Upload handler -> presigned URL
+  %% 5) PUT to S3 Documents
+  %% 6) EventBridge -> Step Functions
+  %% 7) Duplicate check (DynamoDB hash)
+  %% 8) Textract sync/async
+  %% 9) Comprehend
+  %% 10) Bedrock summarization
+  %% 11) Store metadata (DynamoDB Global Table + Names table)
+  %% 12) Dashboard search
+  %% 13) CloudWatch logs/alarms
+
+  subgraph AWSCloud[AWS Cloud]
+    subgraph WebUI[Web UI component]
+      U[(1)]:::num --> CF[Amazon CloudFront]
+      CF --> FE[S3 Frontend Bucket]
+      CF --- COG[Amazon Cognito (2)]
+    end
+
+    subgraph API[API component]
+      CF --> APIGW[Amazon API Gateway (3)]
+      APIGW -->|/upload| UP[Lambda: upload-handler (4)]
+      UP -->|presigned URL| U5[(5)]:::num
+      U5 --> DOCS[S3 Documents Bucket]
+      APIGW -->|/search, /metadata| SEARCH[Lambda: search-handler (12)]
+    end
+
+    subgraph Processing[Processing pipeline]
+      DOCS -- ObjectCreated --> EVB[Amazon EventBridge (6)]
+      EVB --> SFN[AWS Step Functions]
+      SFN --> DUP[Lambda: check-duplicate (7)]
+      DUP --> HASH[DynamoDB: document-hash-registry]
+      DUP -- duplicate --> STORE[Lambda: store-metadata (11)]
+      DUP -- unique --> TEXSTART[Lambda: textract-start (8)] --> TEXTRACT[Amazon Textract] --> TEXSTATUS[Lambda: textract-status]
+      TEXSTATUS --> COMP[Lambda: comprehend-analyze (9)] --> COMPSVC[Amazon Comprehend]
+      COMP --> BEDROCKFN[Lambda: bedrock-summarize (10)] --> BEDROCK[Amazon Bedrock]
+      BEDROCKFN --> STORE
+      STORE --> META[DynamoDB Global Table: document-metadata]
+      STORE --> NAMES[DynamoDB: document-names]
+    end
+
+    subgraph Observability[Observability]
+      CW[Amazon CloudWatch (13)]
+      UP --> CW
+      SEARCH --> CW
+      DUP --> CW
+      TEXSTART --> CW
+      TEXSTATUS --> CW
+      COMP --> CW
+      BEDROCKFN --> CW
+      STORE --> CW
+      APIGW --> CW
+      SFN --> CW
+    end
+
+    %% Dashboard reads
+    SEARCH --> META
+    SEARCH --> NAMES
+
+    %% Auth path
+    U --> CF
+    U -. sign-in .-> COG
+    APIGW -. Cognito Authorizer .-> COG
+  end
+
+  classDef num fill:#333,stroke:#333,color:#fff,stroke-width:0.5px;
