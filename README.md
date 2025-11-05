@@ -688,32 +688,7 @@ Response:
 **Solution:**
 Check Step Functions execution history for detailed error messages.
 
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [AWS Intelligent Document Processing Workshop](https://catalog.workshops.aws/intelligent-document-processing)
-- [AWS Solutions Architect Best Practices](https://aws.amazon.com/architecture/)
-- AWS CDK Team for the excellent IaC framework
-
-## 📞 Support
-
-- **Issues:** [GitHub Issues](https://github.com/annabook21/IntelligentDoc_Processor/issues)
-- **Documentation:** [AWS Documentation](https://docs.aws.amazon.com/)
-- **Community:** [AWS re:Post](https://repost.aws/)
-
----
-
-**Built with ❤️ using AWS Serverless**
