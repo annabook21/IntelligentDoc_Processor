@@ -24,6 +24,7 @@
     "@aws-sdk/client-bedrock-agent": "^3.764.0",
     "@aws-sdk/client-bedrock-agent-runtime": "^3.764.0",
     "@aws-sdk/client-bedrock-runtime": "^3.764.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.764.0",
     "@aws-sdk/client-comprehend": "^3.764.0",
     "@aws-sdk/client-dynamodb": "^3.764.0",
     "@aws-sdk/client-s3": "^3.764.0",

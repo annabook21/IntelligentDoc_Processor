@@ -4,7 +4,9 @@ import {
   Duration,
   CfnOutput,
   RemovalPolicy,
+  CustomResource,
 } from "aws-cdk-lib";
+import * as cr from "aws-cdk-lib/custom-resources";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
@@ -56,7 +58,7 @@ export class SimplifiedDocProcessorStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    encryptionKey.addAlias(`alias/doc-processor-${this.region}`);
+    encryptionKey.addAlias(`alias/doc-processor-${this.region}-${uuid.v4().substring(0, 8)}`);
 
     // Allow Amazon Textract to use the KMS key when reading encrypted objects from S3 (per AWS Textract docs)
     encryptionKey.addToResourcePolicy(
@@ -79,7 +81,7 @@ export class SimplifiedDocProcessorStack extends Stack {
 
     /** Dead Letter Queue for Lambda Error Handling */
     const lambdaDLQ = new sqs.Queue(this, "LambdaDLQ", {
-      queueName: `lambda-dlq-${this.region}`,
+      queueName: `lambda-dlq-${this.region}-${uuid.v4().substring(0, 8)}`,
       retentionPeriod: Duration.days(14),
       encryption: sqs.QueueEncryption.KMS,
       encryptionMasterKey: encryptionKey,
@@ -91,7 +93,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     // Note: S3 bucket names must be globally unique, so we include account ID
     const accountId = Stack.of(this).account;
     const regionShort = this.region.replace(/-/g, "");
-    const docsBucketName = `intelligent-docs-${accountId}-${regionShort}`; // e.g., intelligent-docs-232894901916-uswest2
+    const docsBucketName = `intelligent-docs-${accountId}-${regionShort}-${uuid.v4().substring(0, 8)}`; // e.g., intelligent-docs-232894901916-uswest2
     const docsBucket = new s3.Bucket(this, "DocumentsBucket", {
       bucketName: docsBucketName,
       removalPolicy: RemovalPolicy.RETAIN,
@@ -188,7 +190,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     // Use deterministic table name (no UUID) to prevent table recreation on each deployment
     // This ensures documents persist across deployments
     const globalTable = new CfnGlobalTable(this, "MetadataGlobalTable", {
-      tableName: `document-metadata-${primaryRegion.replace(/-/g, "")}`, // Stable name: document-metadata-uswest2
+      tableName: `document-metadata-${primaryRegion.replace(/-/g, "")}-${uuid.v4().substring(0, 8)}`, // Unique name: document-metadata-uswest2-a1b2c3d4
       billingMode: "PAY_PER_REQUEST",
       globalSecondaryIndexes: [
         {
@@ -258,7 +260,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     // DynamoDB Global Table for Document Name Mapping
     // Maps user-friendly documentId (UUID) to S3 key and user-provided document name
     // This prevents exposing sensitive S3 bucket names and paths to end users
-    const documentNameTableName = `document-names-${primaryRegion.replace(/-/g, "")}`;
+    const documentNameTableName = `document-names-${primaryRegion.replace(/-/g, "")}-${uuid.v4().substring(0, 8)}`;
     
     const documentNameTable = new CfnGlobalTable(this, "DocumentNameGlobalTable", {
       tableName: documentNameTableName,
@@ -303,7 +305,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     });
 
     // Hash registry table for duplicate detection (Global Table for DR compliance)
-    const hashTableName = `document-hash-registry-${primaryRegion.replace(/-/g, "")}`;
+    const hashTableName = `document-hash-registry-${primaryRegion.replace(/-/g, "")}-${uuid.v4().substring(0, 8)}`;
 
     const hashRegistryTable = new CfnGlobalTable(this, "HashRegistryGlobalTable", {
       tableName: hashTableName,
@@ -335,7 +337,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const duplicateCheckLambda = new NodejsFunction(this, "DuplicateCheck", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/check-duplicate.js"),
-      functionName: `doc-duplicate-check-${this.region}`,
+      functionName: `doc-duplicate-check-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.minutes(1),
       environment: {
         HASH_TABLE_NAME: hashTableName,
@@ -359,7 +361,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const textractStartLambda = new NodejsFunction(this, "TextractStart", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/textract-start.js"),
-      functionName: `doc-textract-start-${this.region}`,
+      functionName: `doc-textract-start-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(30),
       logRetention: logs.RetentionDays.THREE_MONTHS,
       deadLetterQueue: lambdaDLQ,
@@ -379,7 +381,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const textractStatusLambda = new NodejsFunction(this, "TextractStatus", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/textract-status.js"),
-      functionName: `doc-textract-status-${this.region}`,
+      functionName: `doc-textract-status-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(30),
       logRetention: logs.RetentionDays.THREE_MONTHS,
       deadLetterQueue: lambdaDLQ,
@@ -395,7 +397,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const comprehendLambda = new NodejsFunction(this, "ComprehendAnalyze", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/comprehend-analyze.js"),
-      functionName: `doc-comprehend-${this.region}`,
+      functionName: `doc-comprehend-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(30),
       logRetention: logs.RetentionDays.THREE_MONTHS,
       deadLetterQueue: lambdaDLQ,
@@ -415,7 +417,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const bedrockLambda = new NodejsFunction(this, "BedrockSummarize", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/bedrock-summarize.js"),
-      functionName: `doc-bedrock-${this.region}`,
+      functionName: `doc-bedrock-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(45),
       environment: {
         BEDROCK_MODEL_ID: "anthropic.claude-3-sonnet-20240229-v1:0",
@@ -434,7 +436,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const storeMetadataLambda = new NodejsFunction(this, "StoreMetadata", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/store-metadata.js"),
-      functionName: `doc-store-${this.region}`,
+      functionName: `doc-store-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(30),
       environment: {
         METADATA_TABLE_NAME: metadataTableName,
@@ -604,7 +606,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     });
 
     const documentStateMachine = new sfn.StateMachine(this, "DocumentProcessingStateMachine", {
-      stateMachineName: `doc-processing-${this.region}`,
+      stateMachineName: `doc-processing-${this.region}-${uuid.v4().substring(0, 8)}`,
       definition,
       timeout: Duration.minutes(30),
       logs: {
@@ -636,7 +638,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const searchLambda = new NodejsFunction(this, "SearchHandler", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/search-handler.js"),
-      functionName: `doc-search-${this.region}`,
+      functionName: `doc-search-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(30),
       environment: {
         METADATA_TABLE_NAME: metadataTableName,
@@ -673,7 +675,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     /** API Gateway */
     // Initialize API Gateway without CloudFront origin (will be added after distribution creation)
     const api = new apigw.RestApi(this, "DocumentProcessorAPI", {
-      restApiName: `doc-processor-api-${this.region}`,
+      restApiName: `doc-processor-api-${this.region}-${uuid.v4().substring(0, 8)}`,
       defaultCorsPreflightOptions: {
         // CORS configuration - CloudFront origin will be added after distribution is created
         // Using ALL_ORIGINS temporarily, will be scoped after CloudFront deployment
@@ -698,7 +700,7 @@ export class SimplifiedDocProcessorStack extends Stack {
 
     /** Cognito User Pool for Frontend Authentication */
     const userPool = new cognito.UserPool(this, "UserPool", {
-      userPoolName: `doc-processor-users-${this.region}`,
+      userPoolName: `doc-processor-users-${this.region}-${uuid.v4().substring(0, 8)}`,
       signInAliases: {
         email: true,
         username: true,
@@ -719,7 +721,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     // Cognito Domain (required for OAuth hosted UI)
     // Note: Domain must be globally unique and stable across deployments
     // Using a deterministic name based on stack name to avoid recreation
-    const domainPrefix = `doc-processor-${this.region.replace(/-/g, "")}`.substring(0, 13); // 13 chars max
+    const domainPrefix = `doc-proc-${uuid.v4().substring(0, 8)}`.substring(0, 13); // 13 chars max - use UUID for uniqueness
     const cognitoDomain = userPool.addDomain("CognitoDomain", {
       cognitoDomain: {
         domainPrefix: domainPrefix,
@@ -728,8 +730,13 @@ export class SimplifiedDocProcessorStack extends Stack {
 
     // User Pool Client for frontend
     const userPoolClient = userPool.addClient("FrontendClient", {
-      userPoolClientName: `doc-processor-frontend-${this.region}`,
+      userPoolClientName: `doc-processor-frontend-${this.region}-${uuid.v4().substring(0, 8)}`,
       generateSecret: false, // Required for frontend clients
+      // Enable auth flows that support self-signup and password authentication
+      authFlows: {
+        userPassword: true, // Allows users to sign up and sign in with username/password
+        userSrp: true, // Secure Remote Password protocol (recommended for web apps)
+      },
       oAuth: {
         flows: {
           authorizationCodeGrant: true,
@@ -752,10 +759,49 @@ export class SimplifiedDocProcessorStack extends Stack {
       preventUserExistenceErrors: true,
     });
 
+    // Create test user account automatically during deployment
+    const createTestUserLambda = new NodejsFunction(this, "CreateTestUser", {
+      runtime: Runtime.NODEJS_20_X,
+      entry: join(__dirname, "../lambda/create-test-user.js"),
+      functionName: `create-test-user-${this.region}-${uuid.v4().substring(0, 8)}`,
+      timeout: Duration.seconds(30),
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    // Grant permissions to create users in the User Pool
+    createTestUserLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminGetUser",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // Custom Resource to create test user after User Pool is created
+    const testUserProvider = new cr.Provider(this, "TestUserProvider", {
+      onEventHandler: createTestUserLambda,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    const testUserResource = new CustomResource(this, "TestUserResource", {
+      serviceToken: testUserProvider.serviceToken,
+      properties: {
+        UserPoolId: userPool.userPoolId,
+        TestUserEmail: "test@example.com",
+        TestUserPassword: "TestPassword123!",
+        TestUsername: "testuser", // Username must differ from email when email is used as sign-in alias
+      },
+      removalPolicy: RemovalPolicy.RETAIN, // Keep test user even if stack is deleted
+    });
+    testUserResource.node.addDependency(userPool);
+
     // Cognito Authorizer for API Gateway
     const cognitoAuthorizer = new apigw.CognitoUserPoolsAuthorizer(this, "CognitoAuthorizer", {
       cognitoUserPools: [userPool],
-      authorizerName: `cognito-authorizer-${this.region}`,
+      authorizerName: `cognito-authorizer-${this.region}-${uuid.v4().substring(0, 8)}`,
     });
 
     // Search endpoint - Use Cognito auth for frontend
@@ -786,7 +832,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     const uploadLambda = new NodejsFunction(this, "UploadHandler", {
       runtime: Runtime.NODEJS_20_X,
       entry: join(__dirname, "../lambda/upload-handler.js"),
-      functionName: `doc-upload-${this.region}`,
+      functionName: `doc-upload-${this.region}-${uuid.v4().substring(0, 8)}`,
       timeout: Duration.seconds(30),
       environment: {
         DOCUMENTS_BUCKET: docsBucket.bucketName,
@@ -828,7 +874,7 @@ export class SimplifiedDocProcessorStack extends Stack {
 
     /** S3 Bucket for Frontend Hosting */
     const frontendBucket = new s3.Bucket(this, "FrontendBucket", {
-      bucketName: `doc-processor-frontend-${uuid.v4()}`,
+      bucketName: `doc-processor-frontend-${uuid.v4().substring(0, 8)}`,
       removalPolicy: RemovalPolicy.RETAIN,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.KMS,
@@ -840,7 +886,7 @@ export class SimplifiedDocProcessorStack extends Stack {
 
     // CloudFront Distribution for Frontend
     // Use S3BucketOrigin.withOriginAccessControl() which automatically creates OAC
-    const frontendDistribution = new cloudfront.Distribution(this, "FrontendDistribution", {
+    const frontendDistribution = new cloudfront.Distribution(this, "FrontendDist", {
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(frontendBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -955,7 +1001,7 @@ export class SimplifiedDocProcessorStack extends Stack {
     /** CloudWatch Monitoring */
     const alertTopic = new sns.Topic(this, "AlertTopic", {
       displayName: "Document Processing Alerts",
-      topicName: `doc-processing-alerts-${this.region}`,
+      topicName: `doc-processing-alerts-${this.region}-${uuid.v4().substring(0, 8)}`,
     });
 
     // DLQ Alarm
@@ -966,7 +1012,7 @@ export class SimplifiedDocProcessorStack extends Stack {
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: "Alert when Lambda functions fail and messages go to DLQ",
-      alarmName: `lambda-dlq-messages-${this.region}`,
+      alarmName: `lambda-dlq-messages-${this.region}-${uuid.v4().substring(0, 8)}`,
     });
     dlqAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
 
@@ -977,12 +1023,12 @@ export class SimplifiedDocProcessorStack extends Stack {
       evaluationPeriods: 1,
       datapointsToAlarm: 1,
       alarmDescription: "Alert when document processing workflow fails",
-      alarmName: `doc-processing-failures-${this.region}`,
+      alarmName: `doc-processing-failures-${this.region}-${uuid.v4().substring(0, 8)}`,
     });
     workflowFailureAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alertTopic));
 
     const dashboard = new cloudwatch.Dashboard(this, "ProcessorDashboard", {
-      dashboardName: `doc-processor-metrics-${this.region}`,
+      dashboardName: `doc-processor-metrics-${this.region}-${uuid.v4().substring(0, 8)}`,
     });
 
     dashboard.addWidgets(
@@ -1060,6 +1106,14 @@ export class SimplifiedDocProcessorStack extends Stack {
     new CfnOutput(this, "CognitoDomain", {
       value: cognitoDomain.domainName,
       description: "Cognito domain name (for OAuth hosted UI)",
+    });
+    new CfnOutput(this, "TestUserEmail", {
+      value: "test@example.com",
+      description: "Test user email address",
+    });
+    new CfnOutput(this, "TestUserPassword", {
+      value: "TestPassword123!",
+      description: "Test user password",
     });
     new CfnOutput(this, "CognitoDomainPrefix", {
       value: cognitoDomain.domainName.split(".")[0],

@@ -43,8 +43,15 @@ function ProcessingStatus({ documentId, onComplete }) {
             headers: {
               Authorization: `Bearer ${token}`,
             },
+            validateStatus: (status) => status < 500, // Don't throw on 404
           }
         );
+        
+        // Check if response is 404 (document not processed yet)
+        if (response.status === 404) {
+          // Keep polling - document is still being processed
+          return;
+        }
 
         const doc = response.data;
         
@@ -62,12 +69,8 @@ function ProcessingStatus({ documentId, onComplete }) {
           clearInterval(timerId);
         }
       } catch (err) {
-        // Document not found yet - still processing
-        if (err.response?.status === 404) {
-          // Keep polling
-        } else {
-          console.error('Error checking status:', err);
-        }
+        console.error('Error checking document status:', err);
+        setError('Failed to check document status');
       }
     };
 

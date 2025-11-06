@@ -32,7 +32,7 @@ const app = new cdk.App();
 const account = process.env.CDK_DEFAULT_ACCOUNT;
 const region = process.env.CDK_DEFAULT_REGION || 'us-west-2';
 
-new SimplifiedDocProcessorStack(app, 'SimplifiedDocProcessorStack', {
+new SimplifiedDocProcessorStack(app, 'SimplifiedDocProcessorStackV3', {
   env: { 
     account: account, 
     region: region
