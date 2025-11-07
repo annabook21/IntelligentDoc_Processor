@@ -168,6 +168,96 @@ stateDiagram-v2
     Failed --> [*]: Error logged to DLQ
 ```
 
+## 🌍 Disaster Recovery
+
+### Multi-Region Architecture
+
+This solution implements **DynamoDB Global Tables** for automatic cross-region data replication:
+
+**Primary Region:** us-west-2 (Oregon)
+- All processing pipeline resources (Lambda, Step Functions, API Gateway)
+- DynamoDB primary tables with read/write operations
+- S3 document storage
+- CloudFront distribution (global)
+
+**DR Region:** us-east-2 (Ohio)
+- DynamoDB Global Table replicas (automatic replication)
+- Read/write capability (multi-master)
+- Deletion protection enabled
+
+### Data Replication
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Primary Region (us-west-2)                   │
+├─────────────────────────────────────────────────────────────────┤
+│  DynamoDB Global Tables (Active)                                │
+│  ├── document-metadata-uswest2-df3261d7                         │
+│  ├── document-hash-registry-uswest2-b2e970e1                    │
+│  └── document-names-uswest2-aa45fcc8                            │
+│                                                                  │
+│  Sub-second replication ↓                                       │
+└──────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                     DR Region (us-east-2)                       │
+├─────────────────────────────────────────────────────────────────┤
+│  DynamoDB Global Table Replicas (Passive)                       │
+│  ├── document-metadata (replica)                                │
+│  ├── document-hash-registry (replica)                           │
+│  └── document-names (replica)                                   │
+│                                                                  │
+│  🛡️  Deletion Protection: ENABLED                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Recovery Metrics
+
+| Metric | Value | Description |
+|--------|-------|-------------|
+| **RPO** | <1 second | Recovery Point Objective - Max data loss |
+| **RTO** | 15-30 minutes | Recovery Time Objective - Manual failover |
+| **Replication Lag** | <1 second | Typical DynamoDB Global Table sync time |
+| **Data Durability** | 99.999999999% | S3 + DynamoDB multi-AZ + multi-region |
+
+### Failover Procedure
+
+**If us-west-2 becomes unavailable:**
+
+1. **Verify DR region health:**
+   ```bash
+   aws dynamodb describe-table \
+     --table-name document-metadata-uswest2-df3261d7 \
+     --region us-east-2
+   ```
+
+2. **Deploy stack to DR region:**
+   ```bash
+   export CDK_DEFAULT_REGION=us-east-2
+   export DR_REGION=us-west-2  # Reverse roles
+   cd intelligent-doc-processor/backend
+   npx cdk deploy SimplifiedDocProcessorStackV3 --require-approval never
+   ```
+
+3. **Update CloudFront origin** (points to new API Gateway in us-east-2)
+
+4. **Notify users** of temporary authentication changes (Cognito is region-specific)
+
+5. **Monitor replication status**
+
+**See [DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md) for detailed procedures.**
+
+### Current Limitations
+
+**Not Replicated:**
+- ❌ S3 documents (stored only in us-west-2)
+  - **Recommendation**: Enable S3 Cross-Region Replication (CRR)
+- ❌ Lambda functions (deploy on-demand to DR region)
+- ❌ API Gateway (deploy on-demand to DR region)
+- ❌ Cognito User Pool (region-specific, requires recreation)
+
+**See [DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md) for enhancement recommendations.**
+
 ## 📋 Prerequisites
 
 ### Required Tools

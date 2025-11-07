@@ -92,8 +92,8 @@ export class SimplifiedDocProcessorStack extends Stack {
     // This ensures documents persist across deployments
     // Note: S3 bucket names must be globally unique, so we include account ID
     const accountId = Stack.of(this).account;
-    const regionShort = this.region.replace(/-/g, "");
-    const docsBucketName = `intelligent-docs-${accountId}-${regionShort}-${uuid.v4().substring(0, 8)}`; // e.g., intelligent-docs-232894901916-uswest2
+    const bucketRegionCode = this.region.replace(/-/g, "");
+    const docsBucketName = `intelligent-docs-${accountId}-${bucketRegionCode}-${uuid.v4().substring(0, 8)}`; // e.g., intelligent-docs-232894901916-uswest2
     const docsBucket = new s3.Bucket(this, "DocumentsBucket", {
       bucketName: docsBucketName,
       removalPolicy: RemovalPolicy.RETAIN,
@@ -719,9 +719,22 @@ export class SimplifiedDocProcessorStack extends Stack {
     });
 
     // Cognito Domain (required for OAuth hosted UI)
-    // Note: Domain must be globally unique and stable across deployments
-    // Using a deterministic name based on stack name to avoid recreation
-    const domainPrefix = `doc-proc-${uuid.v4().substring(0, 8)}`.substring(0, 13); // 13 chars max - use UUID for uniqueness
+    // Note: Domain prefix must be unique within the AWS Region and stable across deployments
+    // Cannot contain "aws", "amazon", or "cognito"
+    // Must be lowercase, alphanumeric and hyphens only, 1-63 characters
+    // Cannot start or end with hyphen
+    // Cannot start with a number - must start with a letter
+    // Using a simple, stable prefix: idp-{accountLast6}-{regionShort}
+    // Example: idp-901916-usw2
+    const accountLast6 = this.account.substring(Math.max(0, this.account.length - 6)); // Last 6 digits of account ID
+    const regionShort = this.region.replace(/-/g, "").substring(0, 4).toLowerCase(); // First 4 chars of region code
+    let domainPrefix = `idp-${accountLast6}-${regionShort}`.toLowerCase();
+    // Ensure it doesn't start or end with hyphen, is within length limit, and remove any invalid characters
+    domainPrefix = domainPrefix.replace(/^-+|-+$/g, '').replace(/[^a-z0-9-]/g, '').substring(0, 63);
+    // Ensure it doesn't end with hyphen after substring
+    if (domainPrefix.endsWith('-')) {
+      domainPrefix = domainPrefix.slice(0, -1);
+    }
     const cognitoDomain = userPool.addDomain("CognitoDomain", {
       cognitoDomain: {
         domainPrefix: domainPrefix,
@@ -997,6 +1010,43 @@ export class SimplifiedDocProcessorStack extends Stack {
       // Prune old files to keep bucket clean
       prune: true,
     });
+
+    // Update Cognito User Pool Client OAuth callback URLs with CloudFront URL
+    const updateCognitoCallbacksLambda = new NodejsFunction(this, "UpdateCognitoCallbacks", {
+      runtime: Runtime.NODEJS_20_X,
+      entry: join(__dirname, "../lambda/update-cognito-callbacks.js"),
+      functionName: `update-cognito-callbacks-${this.region}-${uuid.v4().substring(0, 8)}`,
+      timeout: Duration.seconds(30),
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    // Grant permissions to update User Pool Client
+    updateCognitoCallbacksLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:DescribeUserPoolClient",
+          "cognito-idp:UpdateUserPoolClient",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    const updateCognitoCallbacksProvider = new cr.Provider(this, "UpdateCognitoCallbacksProvider", {
+      onEventHandler: updateCognitoCallbacksLambda,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    const updateCognitoCallbacksResource = new CustomResource(this, "UpdateCognitoCallbacksResource", {
+      serviceToken: updateCognitoCallbacksProvider.serviceToken,
+      properties: {
+        UserPoolId: userPool.userPoolId,
+        UserPoolClientId: userPoolClient.userPoolClientId,
+        CloudFrontUrl: cloudfrontOrigin,
+      },
+    });
+    // Ensure this runs after CloudFront and frontend deployment
+    updateCognitoCallbacksResource.node.addDependency(frontendDistribution);
+    updateCognitoCallbacksResource.node.addDependency(userPoolClient);
 
     /** CloudWatch Monitoring */
     const alertTopic = new sns.Topic(this, "AlertTopic", {
