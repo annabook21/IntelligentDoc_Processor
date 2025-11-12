@@ -1,1095 +1,504 @@
 # Intelligent Document Processor - Architecture Documentation
 **Stack:** SimplifiedDocProcessorStackV3  
 **Last Updated:** November 12, 2025  
-**Based On:** Actual deployed CloudFormation template
+**Status:** Production-Ready
 
 ---
 
-## Table of Contents
+## Executive Summary
 
-- [System Overview](#system-overview)
-- [Complete System Architecture](#complete-system-architecture)
-- [Component Details](#component-details)
-- [Step Functions Workflow](#step-functions-workflow)
-- [API Architecture](#api-architecture)
-- [Data Storage Architecture](#data-storage-architecture)
-- [Frontend Architecture](#frontend-architecture)
-- [Security Architecture](#security-architecture)
-- [Monitoring & Observability](#monitoring--observability)
-- [Disaster Recovery](#disaster-recovery)
-- [Cost Optimization](#cost-optimization)
+A serverless AWS document processing system using **Step Functions** to orchestrate Textract (OCR), Comprehend (NLP), and Bedrock (AI summarization) for intelligent document analysis.
+
+**Key Metrics:**
+- **Processing Time:** 30-60 seconds per document
+- **Capacity:** 100 concurrent documents
+- **Cost:** ~$60/month (1,000 docs/month)
+- **Availability:** 99.99% (DynamoDB Global Tables with DR)
 
 ---
 
-## System Overview
+## System Architecture
 
-The Intelligent Document Processor is a **serverless AWS application** that processes documents uploaded to S3 using **Step Functions** to orchestrate a multi-stage pipeline involving Textract, Comprehend, and Bedrock.
+### High-Level Components
 
-### Key Technologies
+**Frontend Layer:**
+- CloudFront distribution (HTTPS, HTTP/2)
+- S3-hosted React SPA
+- Cognito authentication (admin-create-only)
 
-- **Orchestration**: AWS Step Functions State Machine
-- **Compute**: AWS Lambda (8 functions, Node.js 20.x)
-- **Storage**: Amazon S3 (KMS encrypted, versioned)
-- **Database**: Amazon DynamoDB Global Tables (3 tables with DR replication)
-- **Authentication**: Amazon Cognito User Pool
-- **Frontend**: React app hosted on S3 + CloudFront
-- **API**: Amazon API Gateway with Cognito authorizer
-- **Security**: AWS KMS, IAM, CloudTrail
-- **Monitoring**: CloudWatch Logs, Metrics, Dashboard, Alarms
+**API Layer:**
+- API Gateway REST API (100 req/s throttle)
+- 2 API Lambdas: Upload Handler, Search Handler
+- Cognito User Pool authorizer
 
-**Cost Estimate:** ~$50-70/month for moderate usage (see [Cost Optimization](#cost-optimization))
+**Processing Layer:**
+- Step Functions state machine (30-min timeout)
+- 6 Processing Lambdas: Duplicate Check, Textract Start/Status, Comprehend, Bedrock, Store Metadata
+- EventBridge rule (S3 object created trigger)
 
----
+**AI Services:**
+- Amazon Textract: OCR text extraction
+- Amazon Comprehend: Language detection, entities, key phrases
+- Amazon Bedrock: Claude 3 Sonnet summarization
 
-## Complete System Architecture
+**Data Layer:**
+- 3 DynamoDB Global Tables (us-west-2 + us-east-2 DR)
+  - Metadata Table (PK: documentId, SK: processingDate, GSI: LanguageIndex)
+  - Document Names Table (PK: documentId, GSI: S3KeyIndex)
+  - Hash Registry Table (PK: contentHash for duplicate detection)
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        User[👤 User]
-        Browser[Web Browser]
-    end
+**Storage:**
+- S3 Documents Bucket (KMS encrypted, versioned, lifecycle: 30d IA, 90d Glacier, 365d Deep Archive)
+- S3 Frontend Bucket (KMS encrypted, CloudFront OAC)
 
-    subgraph "CDN & Frontend"
-        CF[☁️ CloudFront<br/>Distribution]
-        S3Web[📦 S3 Frontend Bucket<br/>React Static Site]
-    end
+**Security:**
+- KMS customer-managed key (auto-rotation)
+- CloudTrail audit logging
+- IAM least-privilege roles
+- TLS 1.2+ in transit
 
-    subgraph "Authentication"
-        Cognito[🔐 Cognito User Pool<br/>idp-901916-uswe<br/>Admin Create Only]
-        CogAuth[🔒 Cognito Authorizer]
-    end
-
-    subgraph "API Layer"
-        APIGW[🌐 API Gateway<br/>REST API<br/>Throttle: 100 req/s]
-        subgraph "API Lambdas"
-            UploadLambda[λ Upload Handler<br/>30s timeout<br/>Presigned URLs]
-            SearchLambda[λ Search Handler<br/>30s timeout<br/>Query DynamoDB]
-        end
-    end
-
-    subgraph "Document Storage"
-        S3Docs[📦 S3 Documents Bucket<br/>KMS Encrypted<br/>Versioned<br/>EventBridge Enabled<br/>Lifecycle: 30d→IA→90d→Glacier→365d→DeepArchive]
-        KMS1[🔑 KMS Key<br/>Customer Managed<br/>Auto-rotation]
-    end
-
-    subgraph "Event Processing"
-        EB[⚡ EventBridge<br/>S3 Event Router<br/>Object Created]
-        SFN[🔄 Step Functions<br/>State Machine<br/>doc-processing-us-west-2<br/>30min timeout]
-    end
-
-    subgraph "Processing Lambdas"
-        L1[λ Duplicate Check<br/>60s timeout<br/>SHA-256 Hashing]
-        L2[λ Textract Start<br/>30s timeout<br/>Async Job Init]
-        L3[λ Textract Status<br/>30s timeout<br/>Job Polling]
-        L4[λ Comprehend Analyze<br/>30s timeout<br/>Language & Entities]
-        L5[λ Bedrock Summarize<br/>45s timeout<br/>Claude 3 Sonnet]
-        L6[λ Store Metadata<br/>30s timeout<br/>DynamoDB Write]
-    end
-
-    subgraph "AWS AI Services"
-        Textract[📄 Amazon Textract<br/>Text Extraction<br/>OCR<br/>Async Jobs]
-        Comprehend[🔍 Amazon Comprehend<br/>NLP<br/>Language Detection<br/>Entity Extraction<br/>Key Phrases]
-        Bedrock[🤖 Amazon Bedrock<br/>Claude 3 Sonnet<br/>Summarization<br/>Insights Extraction]
-    end
-
-    subgraph "Data Layer - Primary Region us-west-2"
-        DDB1[(💾 DynamoDB Global Table<br/>document-metadata<br/>PK: documentId<br/>SK: processingDate)]
-        DDB2[(💾 DynamoDB Global Table<br/>document-names<br/>PK: documentId<br/>GSI: S3KeyIndex)]
-        Hash1[(💾 DynamoDB Global Table<br/>document-hash-registry<br/>PK: contentHash<br/>Duplicate Detection)]
-        GSI1[📊 GSI: LanguageIndex<br/>language + processingDate]
-    end
-
-    subgraph "Data Layer - DR Region us-east-2"
-        DDB1_DR[(💾 DynamoDB Replica<br/>document-metadata<br/>Auto-sync<br/>Deletion Protected)]
-        DDB2_DR[(💾 DynamoDB Replica<br/>document-names<br/>Auto-sync<br/>Deletion Protected)]
-        Hash1_DR[(💾 DynamoDB Replica<br/>hash-registry<br/>Auto-sync<br/>Deletion Protected)]
-    end
-
-    subgraph "Monitoring & Error Handling"
-        CW[📊 CloudWatch<br/>Logs & Metrics]
-        CWDash[📈 CloudWatch Dashboard<br/>Visualization]
-        Alarms[🚨 CloudWatch Alarms<br/>DLQ + Workflow Failures]
-        DLQ[📮 SQS Dead Letter Queue<br/>Failed Jobs<br/>14-day retention<br/>KMS Encrypted]
-        SNS[📧 SNS Topic<br/>Email/SMS Alerts<br/>doc-processing-alerts]
-        Trail[📋 CloudTrail<br/>Audit Logging]
-    end
-
-    User -->|HTTPS| Browser
-    Browser -->|Request| CF
-    CF -->|Serve Static| S3Web
-    Browser -->|Sign In| Cognito
-    Cognito -->|ID Token| Browser
-    Browser -->|API Call + Token| APIGW
-    APIGW -->|Verify Token| CogAuth
-    CogAuth -->|Validate| Cognito
-    
-    APIGW -->|POST /upload| UploadLambda
-    APIGW -->|GET /search| SearchLambda
-    APIGW -->|GET /metadata| SearchLambda
-    APIGW -->|GET /health| SearchLambda
-    
-    UploadLambda -->|Generate Presigned URL| S3Docs
-    UploadLambda -->|Store Name Mapping| DDB2
-    SearchLambda -->|Query| DDB1
-    SearchLambda -->|Query| DDB2
-    
-    Browser -->|PUT to Presigned URL| S3Docs
-    S3Docs -.->|Encrypted with| KMS1
-    S3Docs -->|Object Created Event| EB
-    EB -->|Trigger| SFN
-    
-    SFN -->|1. Check Duplicate| L1
-    L1 -->|Check/Store Hash| Hash1
-    L1 -.->|If Duplicate| L6
-    L1 -->|If New| L2
-    
-    L2 -->|StartDocumentTextDetection| Textract
-    SFN -->|Wait 10s| L3
-    L3 -->|GetDocumentTextDetection| Textract
-    L3 -->|Loop if IN_PROGRESS| L3
-    L3 -->|Text Extracted| L4
-    
-    L4 -->|DetectDominantLanguage| Comprehend
-    L4 -->|DetectEntities| Comprehend
-    L4 -->|DetectKeyPhrases| Comprehend
-    L4 -->|Results| L5
-    
-    L5 -->|InvokeModel| Bedrock
-    L5 -->|Summary + Insights| L6
-    
-    L6 -->|PutItem| DDB1
-    L6 -->|Query Name| DDB2
-    
-    DDB1 -->|Use Index| GSI1
-    DDB1 -.->|Replicate| DDB1_DR
-    DDB2 -.->|Replicate| DDB2_DR
-    Hash1 -.->|Replicate| Hash1_DR
-    
-    SFN -->|On Error| DLQ
-    L1 -->|On Error| DLQ
-    L2 -->|On Error| DLQ
-    L3 -->|On Error| DLQ
-    L4 -->|On Error| DLQ
-    L5 -->|On Error| DLQ
-    L6 -->|On Error| DLQ
-    
-    DLQ -->|Messages Visible| Alarms
-    Alarms -->|Trigger| SNS
-    
-    SFN -->|Execution Logs| CW
-    L1 -->|Logs| CW
-    L2 -->|Logs| CW
-    L3 -->|Logs| CW
-    L4 -->|Logs| CW
-    L5 -->|Logs| CW
-    L6 -->|Logs| CW
-    UploadLambda -->|Logs| CW
-    SearchLambda -->|Logs| CW
-    APIGW -->|Logs| CW
-    
-    CW -->|Aggregate| CWDash
-    CW -->|Evaluate| Alarms
-    Trail -->|Audit| CW
-
-    style User fill:#e1f5ff
-    style S3Docs fill:#ff9900
-    style S3Web fill:#ff9900
-    style SFN fill:#e7157b
-    style DDB1 fill:#527fff
-    style DDB2 fill:#527fff
-    style Hash1 fill:#527fff
-    style DDB1_DR fill:#527fff
-    style DDB2_DR fill:#527fff
-    style Hash1_DR fill:#527fff
-    style Textract fill:#ff9900
-    style Comprehend fill:#ff9900
-    style Bedrock fill:#ff9900
-    style DLQ fill:#ff6b6b
-    style Cognito fill:#dd344c
-    style CF fill:#8C4FFF
-```
+**Monitoring:**
+- CloudWatch Dashboard (3 widgets)
+- 2 CloudWatch Alarms (DLQ messages, workflow failures)
+- SNS alert topic
+- SQS Dead Letter Queue (14-day retention)
+- 90-day log retention
 
 ---
 
-## Component Details
+## Processing Workflow
 
-### Lambda Functions (8 Total)
+### Document Upload Flow
 
-```mermaid
-graph LR
-    subgraph "API Functions (2)"
-        Upload[λ Upload Handler<br/>doc-upload-us-west-2<br/>30s timeout<br/>Generate presigned URLs<br/>Store name mappings]
-        Search[λ Search Handler<br/>doc-search-us-west-2<br/>30s timeout<br/>DynamoDB queries<br/>Metadata retrieval]
-    end
+1. User authenticates via Cognito
+2. Frontend calls POST /upload API
+3. Upload Lambda generates presigned S3 URL
+4. Upload Lambda stores document name mapping in DynamoDB
+5. Frontend uploads file directly to S3
+6. S3 emits "Object Created" event to EventBridge
+7. EventBridge triggers Step Functions state machine
 
-    subgraph "Processing Functions (6)"
-        DupCheck[λ Duplicate Check<br/>doc-duplicate-check-us-west-2<br/>60s timeout<br/>SHA-256 hashing]
-        TextStart[λ Textract Start<br/>doc-textract-start-us-west-2<br/>30s timeout<br/>Async job init]
-        TextStatus[λ Textract Status<br/>doc-textract-status-us-west-2<br/>30s timeout<br/>Job polling]
-        Comp[λ Comprehend Analyze<br/>doc-comprehend-us-west-2<br/>30s timeout<br/>NLP analysis]
-        BR[λ Bedrock Summarize<br/>doc-bedrock-us-west-2<br/>45s timeout<br/>AI enrichment<br/>Claude 3 Sonnet]
-        Store[λ Store Metadata<br/>doc-store-us-west-2<br/>30s timeout<br/>DynamoDB write]
-    end
+### Step Functions State Machine
 
-    subgraph "Environment Variables"
-        ENV1[DOCUMENTS_BUCKET<br/>KMS_KEY_ARN<br/>DOCUMENT_NAME_TABLE]
-        ENV2[METADATA_TABLE_NAME<br/>DOCUMENT_NAME_TABLE]
-        ENV3[HASH_TABLE_NAME]
-        ENV4[BEDROCK_MODEL_ID<br/>Claude 3 Sonnet]
-    end
+**States:**
+1. **PrepareInput** - Extract bucket/key from S3 event
+2. **CheckDuplicate** - Compute SHA-256 hash, check registry
+   - If duplicate: jump to StoreDuplicateMetadata
+   - If new: continue to Textract
+3. **StartTextract** - Call StartDocumentTextDetection (async)
+4. **WaitForTextract** - Wait 10 seconds
+5. **GetTextractStatus** - Poll job status
+   - If IN_PROGRESS: loop back to Wait
+   - If SUCCEEDED: continue
+   - If FAILED: terminate
+6. **AnalyzeWithComprehend** - Detect language, entities, key phrases
+7. **SummarizeWithBedrock** - Generate 2-3 sentence summary with Claude 3 Sonnet
+8. **StoreMetadata** - Write all results to DynamoDB
+9. **ProcessingSucceeded** - End
 
-    Upload -.->|Uses| ENV1
-    Search -.->|Uses| ENV2
-    DupCheck -.->|Uses| ENV3
-    BR -.->|Uses| ENV4
+**Error Handling:**
+- 6 retry attempts per Lambda (exponential backoff, 2x rate, 2s interval)
+- Failed executions sent to SQS DLQ
+- CloudWatch Alarm triggers on DLQ message
+- SNS notification to administrators
 
-    style Upload fill:#90EE90
-    style Search fill:#90EE90
-    style DupCheck fill:#87CEEB
-    style TextStart fill:#87CEEB
-    style TextStatus fill:#87CEEB
-    style Comp fill:#87CEEB
-    style BR fill:#87CEEB
-    style Store fill:#87CEEB
-```
+### Search Flow
 
-**Key Details:**
-- **Runtime**: Node.js 20.x
-- **Log Retention**: 90 days
-- **Dead Letter Queue**: Attached to all functions
-- **Retry Logic**: Configured in Step Functions (3 attempts, exponential backoff)
+1. User calls GET /search with filters (language, date range, status)
+2. Search Lambda queries DynamoDB Metadata Table
+3. Uses LanguageIndex GSI if filtering by language
+4. Returns paginated results (with nextToken)
 
 ---
 
-## Step Functions Workflow
+## API Endpoints
 
-### State Machine Definition
-
-```mermaid
-stateDiagram-v2
-    [*] --> PrepareInput: S3 Event via EventBridge
-
-    PrepareInput: Prepare Input
-    note right of PrepareInput
-        Extract:
-        - bucket name
-        - object key
-        - region: us-west-2
-    end note
-
-    PrepareInput --> CheckDuplicate
-
-    CheckDuplicate: Check Duplicate
-    note right of CheckDuplicate
-        Lambda: doc-duplicate-check
-        - Compute SHA-256 hash
-        - Check hash registry
-        - Store if new
-    end note
-
-    CheckDuplicate --> IsDuplicateChoice
-
-    state IsDuplicateChoice <<choice>>
-    IsDuplicateChoice --> StoreDuplicateMetadata: isDuplicate = true
-    IsDuplicateChoice --> StartTextract: isDuplicate = false
-
-    StoreDuplicateMetadata: Store Duplicate Metadata
-    note right of StoreDuplicateMetadata
-        Lambda: store-metadata
-        - Store minimal metadata
-        - Reference original document
-        - Status: DUPLICATE
-    end note
-
-    StoreDuplicateMetadata --> ProcessingSucceeded
-
-    StartTextract: Start Textract Job
-    note right of StartTextract
-        Lambda: textract-start
-        - StartDocumentTextDetection
-        - Return jobId
-    end note
-
-    StartTextract --> WaitForTextract
-
-    WaitForTextract: Wait for Textract
-    note right of WaitForTextract
-        Wait 10 seconds
-        (Allow async job to process)
-    end note
-
-    WaitForTextract --> GetTextractStatus
-
-    GetTextractStatus: Get Textract Status
-    note right of GetTextractStatus
-        Lambda: textract-status
-        - GetDocumentTextDetection
-        - Check job status
-        - Extract text if complete
-    end note
-
-    GetTextractStatus --> TextractStatusChoice
-
-    state TextractStatusChoice <<choice>>
-    TextractStatusChoice --> WaitForTextract: IN_PROGRESS
-    TextractStatusChoice --> AnalyzeComprehend: SUCCEEDED
-    TextractStatusChoice --> TextractFailed: FAILED
-
-    AnalyzeComprehend: Analyze with Comprehend
-    note right of AnalyzeComprehend
-        Lambda: comprehend-analyze
-        - DetectDominantLanguage
-        - DetectEntities
-        - DetectKeyPhrases
-    end note
-
-    AnalyzeComprehend --> SummarizeBedrock
-
-    SummarizeBedrock: Summarize with Bedrock
-    note right of SummarizeBedrock
-        Lambda: bedrock-summarize
-        - Generate summary (2-3 sentences)
-        - Extract key insights
-        - Extract structured data
-        - Model: Claude 3 Sonnet
-    end note
-
-    SummarizeBedrock --> StoreMetadata
-
-    StoreMetadata: Store Metadata
-    note right of StoreMetadata
-        Lambda: store-metadata
-        - Write to DynamoDB Global Table
-        - All extracted metadata
-        - Status: PROCESSED
-    end note
-
-    StoreMetadata --> ProcessingSucceeded
-
-    ProcessingSucceeded: Processing Succeeded
-    ProcessingSucceeded --> [*]
-
-    TextractFailed: Textract Failed
-    note right of TextractFailed
-        Log error to CloudWatch
-        Send to DLQ
-        SNS notification
-    end note
-    TextractFailed --> [*]
-```
-
-### Error Handling & Retry Logic
-
-**Each Lambda in the state machine has:**
-- **Retry Attempts**: 6
-- **Backoff Rate**: 2x
-- **Interval**: 2 seconds
-- **Retryable Errors**: 
-  - `Lambda.ClientExecutionTimeoutException`
-  - `Lambda.ServiceException`
-  - `Lambda.AWSLambdaException`
-  - `Lambda.SdkClientException`
-
-**Timeout**: 30 minutes (1800 seconds) for entire state machine
-
----
-
-## API Architecture
-
-### API Gateway Endpoints
-
-| Endpoint | Method | Auth | Lambda Handler | Purpose |
-|----------|--------|------|----------------|---------|
-| `/upload` | POST | Cognito | Upload Handler | Generate presigned S3 URL |
-| `/search` | GET | Cognito | Search Handler | Search documents by filters |
-| `/search` | POST | Cognito | Search Handler | Search with complex filters |
-| `/metadata` | GET | Cognito | Search Handler | Get document metadata |
-| `/health` | GET | IAM | Search Handler | Health check endpoint |
-
-### Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Browser
-    participant CloudFront
-    participant Cognito
-    participant APIGateway
-    participant Lambda
-
-    User->>Browser: Access application
-    Browser->>CloudFront: Request React app
-    CloudFront-->>Browser: Serve static files
-    Browser->>Cognito: Sign in request
-    Note over Cognito: Hosted UI<br/>idp-901916-uswe
-    Cognito->>User: Prompt credentials
-    User->>Cognito: username + password
-    Cognito-->>Browser: ID Token + Access Token
-    Browser->>APIGateway: API Request<br/>Authorization: Bearer <ID-Token>
-    APIGateway->>Cognito: Validate token
-    Cognito-->>APIGateway: Token valid
-    APIGateway->>Lambda: Invoke with user context
-    Lambda-->>APIGateway: Response
-    APIGateway-->>Browser: JSON response
-    Browser->>User: Display result
-```
+| Endpoint | Method | Auth | Lambda | Purpose |
+|----------|--------|------|--------|---------|
+| /upload | POST | Cognito | Upload Handler | Generate presigned S3 URL |
+| /search | GET | Cognito | Search Handler | Search documents by filters |
+| /search | POST | Cognito | Search Handler | Complex search queries |
+| /metadata/{id} | GET | Cognito | Search Handler | Get specific document metadata |
+| /health | GET | IAM | Search Handler | Health check |
 
 **Cognito Configuration:**
-- **User Pool**: doc-processor-users-us-west-2
-- **Domain**: idp-901916-uswe
-- **Client**: doc-processor-frontend-us-west-2
-- **Admin Create Only**: True (no self-registration)
-- **OAuth Flows**: Authorization code
-- **OAuth Scopes**: email, openid, profile
-- **Password Policy**: Min 8 chars, uppercase, lowercase, numbers required
+- User Pool: doc-processor-users-us-west-2
+- Domain: idp-901916-uswe
+- Client: doc-processor-frontend-us-west-2
+- Sign-up: Admin create only (no self-registration)
+- Password: Min 8 chars, uppercase, lowercase, numbers
+- OAuth: Authorization code grant
+- Scopes: email, openid, profile
 
 ---
 
-## Data Storage Architecture
+## Lambda Functions
 
-### DynamoDB Global Tables (3 Tables)
+### API Functions (2)
 
-#### 1. Document Metadata Table
-**Name**: `document-metadata-uswest2-df3261d7`
+**Upload Handler** (doc-upload-us-west-2)
+- Timeout: 30s, Memory: 128MB
+- Input: fileName, fileSize, contentType
+- Output: presignedUrl, documentId, expiresIn (300s)
+- Permissions: s3:PutObject, kms:Encrypt, dynamodb:PutItem
 
-```mermaid
-erDiagram
-    METADATA_TABLE {
-        string documentId PK "Format: bucket/key"
-        string processingDate SK "ISO 8601 timestamp"
-        string s3Bucket
-        string s3Key
-        string language "Detected by Comprehend"
-        string entities "JSON array"
-        string keyPhrases "JSON array"
-        string text "First 10k characters"
-        number fullTextLength
-        string summary "Bedrock-generated"
-        string insights "Bedrock-extracted"
-        string structuredData "JSON object"
-        string status "PROCESSED | DUPLICATE"
-        string duplicateOf "Optional - original documentId"
-        string contentHash "SHA-256"
-    }
+**Search Handler** (doc-search-us-west-2)
+- Timeout: 30s, Memory: 256MB
+- Input: filters (language, status, fromDate, toDate), pagination
+- Output: documents[], count, nextToken
+- Permissions: dynamodb:Query, dynamodb:Scan, kms:Decrypt
 
-    LANGUAGE_INDEX {
-        string language PK "GSI PK"
-        string processingDate SK "GSI SK"
-        string documentId "Projected"
-    }
+### Processing Functions (6)
 
-    METADATA_TABLE ||--o{ LANGUAGE_INDEX : "GSI"
-```
+**Duplicate Check** (doc-duplicate-check-us-west-2)
+- Timeout: 60s, Memory: 256MB
+- Action: Compute SHA-256 hash, check/store in registry
+- Output: isDuplicate, contentHash, originalDocId
 
-**Configuration:**
-- **Billing Mode**: Pay-per-request (on-demand)
-- **Replication**: us-west-2 (primary), us-east-2 (DR)
-- **Point-in-Time Recovery**: Enabled
-- **Deletion Protection**: Enabled (DR region)
-- **Stream**: NEW_AND_OLD_IMAGES
+**Textract Start** (doc-textract-start-us-west-2)
+- Timeout: 30s, Memory: 128MB
+- Action: StartDocumentTextDetection (async job)
+- Output: jobId, status
 
-#### 2. Document Names Table
-**Name**: `document-names-uswest2-546db246`
+**Textract Status** (doc-textract-status-us-west-2)
+- Timeout: 30s, Memory: 256MB
+- Action: GetDocumentTextDetection, poll until complete
+- Output: status, text, pageCount
 
-```mermaid
-erDiagram
-    DOCUMENT_NAMES {
-        string documentId PK "UUID"
-        string s3Key "S3 object key"
-        string originalFileName
-        string uploadedAt "ISO 8601"
-        string uploadedBy "Cognito username"
-    }
+**Comprehend Analyze** (doc-comprehend-us-west-2)
+- Timeout: 30s, Memory: 256MB
+- Action: DetectDominantLanguage, DetectEntities, DetectKeyPhrases
+- Output: language, entities[], keyPhrases[]
 
-    S3_KEY_INDEX {
-        string s3Key PK "GSI PK"
-        string documentId "Projected"
-    }
+**Bedrock Summarize** (doc-bedrock-us-west-2)
+- Timeout: 45s, Memory: 512MB
+- Model: Claude 3 Sonnet (anthropic.claude-3-sonnet-20240229-v1:0)
+- Action: Generate 2-3 sentence summary + key insights
+- Output: summary, insights, structuredData
 
-    DOCUMENT_NAMES ||--o{ S3_KEY_INDEX : "GSI"
-```
-
-**Purpose**: Map friendly document IDs to S3 keys and original filenames
-
-#### 3. Hash Registry Table
-**Name**: `document-hash-registry-uswest2-b2e970e1`
-
-```mermaid
-erDiagram
-    HASH_REGISTRY {
-        string contentHash PK "SHA-256 hash"
-        string firstDocumentId
-        string firstSeen "ISO 8601"
-        string latestDocumentId
-        string lastSeen "ISO 8601"
-        number occurrences "Duplicate count"
-    }
-```
-
-**Purpose**: Duplicate detection via content hashing
+**Store Metadata** (doc-store-us-west-2)
+- Timeout: 30s, Memory: 128MB
+- Action: Write all processing results to DynamoDB
+- Attributes: documentId, processingDate, language, entities, keyPhrases, text, summary, insights, status, contentHash
 
 ---
 
-## Frontend Architecture
+## DynamoDB Schema
 
-### CloudFront + S3 Static Hosting
+### Metadata Table (document-metadata-uswest2-df3261d7)
 
-```mermaid
-graph TB
-    subgraph "User Device"
-        Browser[Web Browser<br/>React SPA]
-    end
+**Keys:**
+- PK: documentId (S) - Format: "bucket/key"
+- SK: processingDate (S) - ISO 8601 timestamp
 
-    subgraph "AWS CloudFront"
-        CF[CloudFront Distribution<br/>HTTPS Only<br/>HTTP/2 Enabled]
-        OAC[Origin Access Control<br/>S3 Origin]
-        Cache[Cache Policy<br/>CachingOptimized]
-    end
+**Attributes:**
+- s3Bucket, s3Key, language, entities (JSON array), keyPhrases (JSON array)
+- text (first 10k chars), fullTextLength (N)
+- summary, insights, structuredData (JSON object)
+- status (PROCESSED | DUPLICATE), duplicateOf (optional), contentHash (SHA-256)
 
-    subgraph "S3 Frontend Bucket"
-        S3Frontend[S3 Bucket<br/>doc-processor-frontend<br/>Static Website<br/>KMS Encrypted]
-        Files[index.html<br/>bundle.js<br/>config.json<br/>CSS/Assets]
-    end
+**GSI: LanguageIndex**
+- PK: language (S)
+- SK: processingDate (S)
+- Projection: ALL
 
-    subgraph "Configuration"
-        Config[config.json<br/>- API Endpoint<br/>- Cognito Pool ID<br/>- Cognito Client ID<br/>- Cognito Domain<br/>- CloudFront URL]
-    end
+### Document Names Table (document-names-uswest2-546db246)
 
-    Browser -->|HTTPS Request| CF
-    CF -->|Check Cache| Cache
-    Cache -->|Cache Miss| OAC
-    OAC -->|Fetch| S3Frontend
-    S3Frontend -->|Serve| Files
-    Files -->|Contains| Config
-    CF -->|HTTPS Response| Browser
+**Keys:**
+- PK: documentId (S) - UUID
 
-    Browser -.->|Error 404/403| CF
-    CF -.->|Return| S3Frontend
-    S3Frontend -.->|Serve| Files
-    note right of S3Frontend: SPA routing<br/>Always return index.html
+**Attributes:**
+- s3Key, originalFileName, uploadedAt (ISO 8601), uploadedBy (Cognito username)
 
-    style Browser fill:#e1f5ff
-    style CF fill:#8C4FFF
-    style S3Frontend fill:#ff9900
-```
+**GSI: S3KeyIndex**
+- PK: s3Key (S)
+- Projection: ALL
 
-**CloudFront Configuration:**
-- **Price Class**: PriceClass_100 (US, Canada, Europe)
-- **Compression**: Enabled
-- **IPv6**: Enabled
-- **Default Root Object**: index.html
-- **Custom Error Responses**:
-  - 404 → index.html (for SPA routing)
-  - 403 → index.html (for SPA routing)
+### Hash Registry Table (document-hash-registry-uswest2-b2e970e1)
 
-**Frontend Features:**
-- React SPA with visualization dashboard
-- Cognito authentication integration
-- File upload with presigned URLs
-- Document search and filtering
-- Metadata viewer
-- Processing status indicators
+**Keys:**
+- PK: contentHash (S) - SHA-256 hash
 
----
+**Attributes:**
+- firstDocumentId, firstSeen (ISO 8601)
+- latestDocumentId, lastSeen (ISO 8601)
+- occurrences (N) - Duplicate count
 
-## Security Architecture
-
-### Encryption Architecture
-
-```mermaid
-graph TB
-    subgraph "KMS Customer Managed Key"
-        KMS[🔑 KMS Key<br/>alias/doc-processor-us-west-2<br/>Auto-rotation: Enabled<br/>Removal Policy: RETAIN]
-    end
-
-    subgraph "Encrypted at Rest"
-        S3Docs[📦 S3 Documents Bucket<br/>SSE-KMS]
-        S3Frontend[📦 S3 Frontend Bucket<br/>SSE-KMS]
-        DDB[💾 DynamoDB Tables<br/>AWS Managed Keys]
-        SQS[📮 SQS DLQ<br/>SSE-KMS]
-        Lambda[λ Lambda Env Vars<br/>Can be KMS encrypted]
-    end
-
-    subgraph "Encrypted in Transit"
-        TLS1[HTTPS/TLS 1.2+<br/>CloudFront → Browser]
-        TLS2[HTTPS/TLS 1.2+<br/>API Gateway]
-        TLS3[AWS SDK TLS<br/>Lambda → AWS Services]
-    end
-
-    subgraph "Service Access"
-        Textract_Access[Textract Service<br/>KMS Decrypt Permission<br/>S3 GetObject Permission]
-        CF_Access[CloudFront Service<br/>KMS Decrypt Permission<br/>OAC for S3]
-    end
-
-    KMS -->|Encrypts| S3Docs
-    KMS -->|Encrypts| S3Frontend
-    KMS -->|Encrypts| SQS
-    KMS -.->|Optional| Lambda
-
-    KMS -->|Grant Access| Textract_Access
-    KMS -->|Grant Access| CF_Access
-
-    style KMS fill:#ffcc00
-    style S3Docs fill:#90EE90
-    style S3Frontend fill:#90EE90
-    style DDB fill:#90EE90
-```
-
-### IAM Permissions Model
-
-```mermaid
-graph TD
-    subgraph "Lambda Execution Roles"
-        UploadRole[Upload Handler Role<br/>s3:PutObject<br/>kms:Encrypt<br/>dynamodb:PutItem]
-        SearchRole[Search Handler Role<br/>dynamodb:Query<br/>dynamodb:Scan<br/>kms:Decrypt]
-        DupCheckRole[Duplicate Check Role<br/>s3:GetObject<br/>dynamodb:PutItem/GetItem<br/>kms:Decrypt]
-        TextractStartRole[Textract Start Role<br/>textract:StartDocumentTextDetection<br/>s3:GetObject<br/>kms:Decrypt/Encrypt]
-        TextractStatusRole[Textract Status Role<br/>textract:GetDocumentTextDetection]
-        ComprehendRole[Comprehend Analyze Role<br/>comprehend:DetectDominantLanguage<br/>comprehend:DetectEntities<br/>comprehend:DetectKeyPhrases]
-        BedrockRole[Bedrock Summarize Role<br/>bedrock:InvokeModel]
-        StoreRole[Store Metadata Role<br/>dynamodb:PutItem<br/>dynamodb:Query]
-    end
-
-    subgraph "Service Roles"
-        StepFunctionsRole[Step Functions Role<br/>lambda:InvokeFunction<br/>logs:CreateLogDelivery<br/>xray:PutTraceSegments]
-        EventBridgeRole[EventBridge Role<br/>states:StartExecution]
-    end
-
-    subgraph "Textract Service Role"
-        TextractServiceRole[Textract Service<br/>s3:GetObject<br/>s3:GetBucketLocation<br/>kms:Decrypt]
-    end
-
-    subgraph "Principle of Least Privilege"
-        Note1[Each role has ONLY<br/>the permissions needed<br/>for its specific function]
-    end
-
-    StepFunctionsRole -->|Invokes| UploadRole
-    StepFunctionsRole -->|Invokes| DupCheckRole
-    StepFunctionsRole -->|Invokes| TextractStartRole
-    StepFunctionsRole -->|Invokes| TextractStatusRole
-    StepFunctionsRole -->|Invokes| ComprehendRole
-    StepFunctionsRole -->|Invokes| BedrockRole
-    StepFunctionsRole -->|Invokes| StoreRole
-    EventBridgeRole -->|Triggers| StepFunctionsRole
-
-    style UploadRole fill:#87CEEB
-    style SearchRole fill:#87CEEB
-    style DupCheckRole fill:#87CEEB
-    style StepFunctionsRole fill:#ff6b9d
-```
-
-**Key Security Features:**
-- ✅ S3 bucket policies: Block all public access
-- ✅ S3 bucket policies: Enforce SSL/TLS
-- ✅ KMS key policies: Restrict access to specific services
-- ✅ Cognito password policy: 8+ chars, uppercase, lowercase, numbers
-- ✅ CloudTrail: Enabled with file validation
-- ✅ API Gateway throttling: 100 req/s, 200 burst
-
----
-
-## Monitoring & Observability
-
-### CloudWatch Dashboard
-
-```mermaid
-graph TB
-    subgraph "CloudWatch Dashboard: doc-processor-metrics"
-        Widget1[Document Processing<br/>ExecutionsSucceeded<br/>ExecutionsFailed<br/>Time series chart]
-        Widget2[DLQ Messages<br/>ApproximateNumberOfMessagesVisible<br/>Time series chart]
-        Widget3[API Gateway Requests<br/>Total Count<br/>4XX Errors<br/>5XX Errors<br/>Time series chart]
-    end
-
-    subgraph "Metrics Sources"
-        SFN[Step Functions<br/>ExecutionsSucceeded<br/>ExecutionsFailed<br/>ExecutionTime]
-        DLQ[SQS DLQ<br/>ApproximateNumberOfMessagesVisible<br/>ApproximateAgeOfOldestMessage]
-        APIGW[API Gateway<br/>Count<br/>4XXError<br/>5XXError<br/>Latency]
-    end
-
-    SFN -->|Metrics| Widget1
-    DLQ -->|Metrics| Widget2
-    APIGW -->|Metrics| Widget3
-
-    style Widget1 fill:#90EE90
-    style Widget2 fill:#ff9900
-    style Widget3 fill:#87CEEB
-```
-
-### CloudWatch Alarms
-
-```mermaid
-graph TB
-    subgraph "CloudWatch Alarms"
-        Alarm1[🚨 DLQ Messages Alarm<br/>Metric: ApproximateNumberOfMessagesVisible<br/>Threshold: ≥1 message<br/>Period: 1 minute<br/>Evaluation: 1 period]
-        Alarm2[🚨 Workflow Failure Alarm<br/>Metric: ExecutionsFailed<br/>Threshold: ≥1 failure<br/>Period: 5 minutes<br/>Evaluation: 1 period<br/>Datapoints to Alarm: 1]
-    end
-
-    subgraph "Notification"
-        SNS[📧 SNS Topic<br/>doc-processing-alerts-us-west-2<br/>Email/SMS subscribers]
-    end
-
-    DLQ[SQS DLQ] -->|Messages Visible ≥1| Alarm1
-    SFN[Step Functions] -->|Executions Failed ≥1| Alarm2
-
-    Alarm1 -->|Trigger| SNS
-    Alarm2 -->|Trigger| SNS
-
-    style Alarm1 fill:#ff6b6b
-    style Alarm2 fill:#ff6b6b
-    style SNS fill:#ff9900
-```
-
-### Logging Strategy
-
-**Log Groups:**
-- `/aws/lambda/doc-upload-us-west-2` (90 days retention)
-- `/aws/lambda/doc-search-us-west-2` (90 days retention)
-- `/aws/lambda/doc-duplicate-check-us-west-2` (90 days retention)
-- `/aws/lambda/doc-textract-start-us-west-2` (90 days retention)
-- `/aws/lambda/doc-textract-status-us-west-2` (90 days retention)
-- `/aws/lambda/doc-comprehend-us-west-2` (90 days retention)
-- `/aws/lambda/doc-bedrock-us-west-2` (90 days retention)
-- `/aws/lambda/doc-store-us-west-2` (90 days retention)
-- `/aws/states/doc-processing-us-west-2` (30 days retention)
-
-**Step Functions Logging:**
-- **Level**: ALL (includes execution history, input/output)
-- **X-Ray Tracing**: Enabled
+**Table Configuration (all 3 tables):**
+- Billing: Pay-per-request (on-demand)
+- Replication: us-west-2 (primary) + us-east-2 (DR)
+- Point-in-Time Recovery: Enabled
+- Deletion Protection: Enabled (DR region only)
+- Stream: NEW_AND_OLD_IMAGES
+- Encryption: AWS-managed keys
 
 ---
 
 ## Disaster Recovery
 
-### Multi-Region DynamoDB Global Tables
-
-```mermaid
-graph TB
-    subgraph "Primary Region: us-west-2"
-        App[Application Stack<br/>Lambda + Step Functions<br/>API Gateway<br/>CloudFront]
-        DDB1[(DynamoDB Global Table<br/>document-metadata<br/>Read/Write)]
-        DDB2[(DynamoDB Global Table<br/>document-names<br/>Read/Write)]
-        Hash1[(DynamoDB Global Table<br/>hash-registry<br/>Read/Write)]
-        S3_1[S3 Bucket<br/>Documents<br/>Versioned]
-    end
-
-    subgraph "DR Region: us-east-2"
-        DDB1_DR[(DynamoDB Replica<br/>document-metadata<br/>Read/Write Capable<br/>Deletion Protected)]
-        DDB2_DR[(DynamoDB Replica<br/>document-names<br/>Read/Write Capable<br/>Deletion Protected)]
-        Hash1_DR[(DynamoDB Replica<br/>hash-registry<br/>Read/Write Capable<br/>Deletion Protected)]
-        note_dr[No application stack<br/>No S3 replication<br/>Data only]
-    end
-
-    App -->|Writes| DDB1
-    App -->|Writes| DDB2
-    App -->|Writes| Hash1
-    App -->|Uploads| S3_1
-
-    DDB1 -.->|Auto-Replicate<br/>Sub-second latency| DDB1_DR
-    DDB2 -.->|Auto-Replicate<br/>Sub-second latency| DDB2_DR
-    Hash1 -.->|Auto-Replicate<br/>Sub-second latency| Hash1_DR
-
-    style DDB1 fill:#527fff
-    style DDB2 fill:#527fff
-    style Hash1 fill:#527fff
-    style DDB1_DR fill:#527fff
-    style DDB2_DR fill:#527fff
-    style Hash1_DR fill:#527fff
-    style S3_1 fill:#ff9900
-```
-
-### Current DR Capabilities
-
-**✅ What's Replicated:**
-- DynamoDB table data (3 tables)
-- Sub-second replication latency
-- Multi-master (read/write in both regions)
+**Current Capabilities:**
+- DynamoDB Global Tables replicated to us-east-2 (sub-second latency)
+- Active-active (read/write in both regions)
 - Automatic conflict resolution
 
-**❌ What's NOT Replicated:**
+**NOT Replicated:**
 - S3 documents (no cross-region replication configured)
-- Lambda functions (would need separate deployment)
-- API Gateway (would need separate deployment)
-- Step Functions (would need separate deployment)
-- CloudFront (already globally distributed)
-- Cognito User Pool (region-specific service)
+- Lambda functions (manual deployment required)
+- Step Functions (manual deployment required)
+- API Gateway (manual deployment required)
+- Cognito User Pool (region-specific, users need recreating)
 
-### Recovery Metrics
+**Recovery Metrics:**
+- RPO (Data): <1 second (DynamoDB only)
+- RPO (Documents): Complete loss (S3 not replicated)
+- RTO: 2-4 hours (manual stack deployment + user recreation)
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| **RPO (Data)** | <1 second | DynamoDB Global Tables replication |
-| **RPO (Documents)** | Complete loss | S3 not replicated |
-| **RTO** | 2-4 hours | Manual stack deployment to us-east-2 |
-| **Data Durability** | 99.999999999% (11 9's) | DynamoDB + S3 |
-
-### Failover Procedure
-
-**If us-west-2 becomes unavailable:**
-
-1. **Verify DR data**:
-   ```bash
-   aws dynamodb scan \
-     --table-name document-metadata-uswest2-df3261d7 \
-     --region us-east-2 \
-     --limit 10
-   ```
-
-2. **Deploy stack to us-east-2**:
-   ```bash
-   cd backend
-   cdk deploy SimplifiedDocProcessorStackV3 \
-     --region us-east-2 \
-     --require-approval never
-   ```
-
-3. **Update environment**:
-   - Reconfigure to use existing DynamoDB tables
-   - Create new S3 bucket (documents lost)
-   - Create new Cognito User Pool (users need recreating)
-   - Update CloudFront origin to new API Gateway
-
-4. **Restore users**:
-   - Recreate Cognito users manually
-   - Or restore from backup if available
-
-**Estimated RTO**: 2-4 hours (manual deployment + testing)
+**Failover Procedure:**
+1. Verify DR data: `aws dynamodb scan --table-name document-metadata --region us-east-2`
+2. Deploy stack: `cdk deploy SimplifiedDocProcessorStackV3 --region us-east-2`
+3. Update frontend config to use new API Gateway
+4. Recreate Cognito users
 
 ---
 
-## Cost Optimization
+## Cost Breakdown
 
-### Estimated Monthly Costs
+**Monthly cost for 1,000 documents/month (avg 5 pages each):**
 
-**Moderate Usage:** 1,000 documents/month, 100GB storage, average 5 pages/document
+| Service | Usage | Monthly Cost | % |
+|---------|-------|--------------|---|
+| Bedrock (Claude 3 Sonnet) | 1K requests, 10K tokens avg | $30.00 | 49% |
+| Textract | 5,000 pages | $7.50 | 12% |
+| CloudWatch | 10GB logs, 10 alarms | $5.00 | 8% |
+| CloudFront | 50GB transfer | $4.25 | 7% |
+| DynamoDB | 10K writes, 20K reads + replication | $4.25 | 7% |
+| S3 | 100GB storage | $2.30 | 4% |
+| KMS | 1 key, 10K API calls | $2.00 | 3% |
+| Comprehend | 15K units | $1.50 | 2% |
+| Lambda | 8K invocations, 100 GB-seconds | $0.36 | 1% |
+| Step Functions | 1K executions, 10 steps avg | $0.25 | <1% |
+| API Gateway | 10K requests | $0.35 | <1% |
+| Other (SNS, SQS, CloudTrail, Cognito) | Various | $3.06 | 5% |
+| **TOTAL** | | **$60.77** | **100%** |
 
-| Service | Configuration | Usage | Monthly Cost |
-|---------|---------------|-------|--------------|
-| **S3 Storage** | Documents + Frontend | 100GB | $2.30 |
-| **S3 Requests** | PUTs + GETs | 1K PUT, 10K GET | $0.01 |
-| **Lambda Invocations** | 8 functions | 8K invocations (1K docs × 8) | $0.16 |
-| **Lambda Duration** | Average execution | ~100 GB-seconds | $0.20 |
-| **Textract** | Document text detection | 5,000 pages | $7.50 |
-| **Comprehend** | Language + entities + phrases | 15,000 units | $1.50 |
-| **Bedrock** | Claude 3 Sonnet | 1K requests × 10K tokens avg | $30.00 |
-| **DynamoDB** | Pay-per-request | 10K writes, 20K reads | $3.00 |
-| **DynamoDB Replication** | us-east-2 writes | 10K replicated writes | $1.25 |
-| **API Gateway** | REST API | 10K requests | $0.35 |
-| **Step Functions** | State transitions | 1K executions × 10 steps avg | $0.25 |
-| **CloudFront** | Frontend distribution | 50GB transfer | $4.25 |
-| **Cognito** | User authentication | 50 MAUs | $0.00 (free tier) |
-| **CloudWatch** | Logs + metrics | 10GB logs, 10 alarms | $5.00 |
-| **KMS** | Customer managed key | 1 key, 10K API calls | $2.00 |
-| **EventBridge** | S3 events | 1K events | $0.00 |
-| **SNS** | Notifications | 1K notifications | $0.50 |
-| **SQS** | DLQ | Minimal usage | $0.50 |
-| **CloudTrail** | Audit logging | 10K events | $2.00 |
-| **Total** | | | **~$60.77/month** |
-
-### Cost Drivers (Ranked)
-
-1. **Bedrock (49%)** - $30.00 - AI/ML processing
-2. **Textract (12%)** - $7.50 - OCR text extraction
-3. **CloudWatch (8%)** - $5.00 - Logging and monitoring
-4. **CloudFront (7%)** - $4.25 - CDN distribution
-5. **DynamoDB (7%)** - $4.25 - Database + replication
-6. **Everything Else (17%)** - $9.77
-
-### Cost Optimization Strategies
-
-**1. Reduce Bedrock Costs:**
-- Use shorter prompts (reduce input tokens)
-- Cache common summaries
-- Consider Claude Haiku for simpler documents (cheaper)
-- Batch small documents together
-
-**2. Reduce Textract Costs:**
-- Skip Textract for text-based PDFs (use PDF.js)
-- Implement duplicate detection earlier (skip reprocessing)
-- Consider alternative OCR for simple documents
-
-**3. Optimize DynamoDB:**
-- Use provisioned capacity if usage is predictable (save 50-75%)
-- Reduce replication if DR not critical
-- Use Time-to-Live (TTL) to expire old records
-
-**4. Reduce CloudWatch Costs:**
-- Reduce log retention from 90 days to 30 days
-- Use log sampling for high-volume logs
-- Remove debug logs in production
-
-**5. S3 Lifecycle Optimization:**
-- Already configured (30d → IA, 90d → Glacier, 365d → Deep Archive)
-- Consider more aggressive transitions
-- Enable S3 Intelligent-Tiering for documents
-
-### Free Tier Eligible (First 12 Months)
-
-- Lambda: 1M requests/month free
-- DynamoDB: 25 GB storage + 25 read/write units free
-- S3: 5 GB storage + 20K GET + 2K PUT free
-- Cognito: 50K MAU free
-- **Potential First-Year Savings**: ~$10-15/month
+**Cost Optimization Strategies:**
+1. Use Claude Haiku for simple documents (80% cost reduction)
+2. Skip Textract for text-based PDFs
+3. Implement aggressive duplicate detection
+4. Reduce CloudWatch log retention to 30 days
+5. Switch DynamoDB to provisioned capacity if usage predictable
 
 ---
 
-## Deployment Architecture
+## Monitoring
 
-### CDK Stack Structure
+### CloudWatch Dashboard (doc-processor-metrics)
 
-```
-SimplifiedDocProcessorStackV3/
-├── KMS Encryption Key
-├── SQS Dead Letter Queue
-├── S3 Buckets (2)
-│   ├── Documents Bucket (with EventBridge)
-│   └── Frontend Bucket
-├── DynamoDB Global Tables (3)
-│   ├── Metadata Table (with LanguageIndex GSI)
-│   ├── Document Names Table (with S3KeyIndex GSI)
-│   └── Hash Registry Table
-├── Lambda Functions (8)
-│   ├── Upload Handler
-│   ├── Search Handler
-│   ├── Duplicate Check
-│   ├── Textract Start
-│   ├── Textract Status
-│   ├── Comprehend Analyze
-│   ├── Bedrock Summarize
-│   └── Store Metadata
-├── Step Functions State Machine
-├── EventBridge Rule
-├── API Gateway REST API
-│   ├── CORS configuration
-│   ├── Cognito Authorizer
-│   └── Endpoints (/upload, /search, /metadata, /health)
-├── Cognito User Pool
-│   ├── Domain (idp-901916-uswe)
-│   └── Frontend Client
-├── CloudFront Distribution
-│   └── Origin Access Control
-├── SNS Topic (Alerts)
-├── CloudWatch Alarms (2)
-├── CloudWatch Dashboard
-└── CloudTrail (Audit)
-```
+**Widget 1: Document Processing**
+- ExecutionsSucceeded (Step Functions)
+- ExecutionsFailed (Step Functions, red)
 
-### Deployment Steps
+**Widget 2: DLQ Messages**
+- ApproximateNumberOfMessagesVisible (SQS DLQ, orange)
+
+**Widget 3: API Gateway Requests**
+- Total Count
+- 4XX Errors (orange)
+- 5XX Errors (red)
+
+### CloudWatch Alarms
+
+**DLQ Messages Alarm** (lambda-dlq-messages)
+- Metric: ApproximateNumberOfMessagesVisible
+- Threshold: >= 1 message
+- Period: 1 minute
+- Action: SNS notification
+
+**Workflow Failure Alarm** (doc-processing-failures)
+- Metric: ExecutionsFailed (Step Functions)
+- Threshold: >= 1 failure
+- Period: 5 minutes
+- Datapoints to Alarm: 1
+- Action: SNS notification
+
+### Log Groups (90-day retention)
+
+- /aws/lambda/doc-upload-us-west-2
+- /aws/lambda/doc-search-us-west-2
+- /aws/lambda/doc-duplicate-check-us-west-2
+- /aws/lambda/doc-textract-start-us-west-2
+- /aws/lambda/doc-textract-status-us-west-2
+- /aws/lambda/doc-comprehend-us-west-2
+- /aws/lambda/doc-bedrock-us-west-2
+- /aws/lambda/doc-store-us-west-2
+- /aws/states/doc-processing-us-west-2 (30-day retention)
+
+---
+
+## Security
+
+**Encryption at Rest:**
+- S3 documents: KMS customer-managed key
+- S3 frontend: KMS customer-managed key
+- DynamoDB tables: AWS-managed keys
+- SQS DLQ: KMS customer-managed key
+
+**Encryption in Transit:**
+- CloudFront to browser: TLS 1.2+
+- API Gateway: TLS 1.2+
+- All AWS service calls: AWS SDK TLS
+
+**Authentication:**
+- Frontend: Cognito User Pool (OAuth 2.0 authorization code grant)
+- API Gateway: Cognito User Pool authorizer (/upload, /search, /metadata)
+- Health endpoint: IAM authentication
+
+**IAM Roles (Least Privilege):**
+- Each Lambda has dedicated execution role
+- Step Functions role (invoke Lambdas, CloudWatch logs, X-Ray)
+- EventBridge role (start Step Functions executions)
+- Textract service role (S3 GetObject, KMS Decrypt)
+
+**S3 Bucket Policies:**
+- Block all public access
+- Enforce SSL/TLS
+- Textract service access (conditional on source ARN)
+- CloudFront OAC access (frontend bucket only)
+
+**API Gateway:**
+- Throttling: 100 req/s, 200 burst
+- Request validation enabled
+- CORS: Restricted to CloudFront domain
+
+**CloudTrail:**
+- Enabled with file validation
+- Logs all API calls
+- Retained for audit
+
+---
+
+## Deployment
+
+### Prerequisites
+
+1. AWS CLI v2 configured
+2. Node.js 20.x
+3. AWS CDK v2.x installed globally
+4. Docker Desktop running (for Lambda bundling)
+5. Bedrock model access enabled: Claude 3 Sonnet
+
+### Deploy Stack
 
 ```bash
-# 1. Bootstrap CDK (first time only)
 cd backend
 export AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 export AWS_REGION=us-west-2
+
+# Bootstrap (first time only)
 cdk bootstrap aws://$AWS_ACCOUNT/$AWS_REGION
 
-# 2. Install dependencies
-npm install
-
-# 3. Synthesize CloudFormation
-cdk synth SimplifiedDocProcessorStackV3
-
-# 4. Deploy stack
+# Deploy
 cdk deploy SimplifiedDocProcessorStackV3 --require-approval never
+```
 
-# 5. Verify deployment
-aws cloudformation describe-stacks \
-  --stack-name SimplifiedDocProcessorStackV3 \
-  --query 'Stacks[0].Outputs'
+### Create Test User
+
+```bash
+USER_POOL_ID="<from stack outputs>"
+
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username test@example.com \
+  --user-attributes Name=email,Value=test@example.com \
+  --temporary-password "TempPass123!" \
+  --message-action SUPPRESS
+
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username test@example.com \
+  --password "TestPassword123!" \
+  --permanent
 ```
 
 ### Stack Outputs
 
-| Output | Description |
-|--------|-------------|
-| `DocumentsBucketName` | S3 bucket for document uploads |
-| `APIEndpoint` | API Gateway base URL |
-| `CloudFrontURL` | Frontend application URL |
-| `UserPoolId` | Cognito User Pool ID |
-| `UserPoolClientId` | Cognito Client ID for frontend |
-| `CognitoDomain` | Cognito OAuth domain |
-| `MetadataTableName` | DynamoDB metadata table name |
-| `HashRegistryTableName` | DynamoDB hash registry table name |
-| `DashboardName` | CloudWatch dashboard name |
-| `DLQQueueUrl` | Dead letter queue URL |
-| `PrimaryRegion` | Primary region (us-west-2) |
-| `DRRegion` | DR region (us-east-2) |
+- DocumentsBucketName
+- APIEndpoint
+- CloudFrontURL
+- UserPoolId
+- UserPoolClientId
+- CognitoDomain
+- MetadataTableName
+- HashRegistryTableName
+- DashboardName
+- DLQQueueUrl
+- PrimaryRegion (us-west-2)
+- DRRegion (us-east-2)
 
 ---
 
-## Appendix: Document Processing Flow (Detailed)
+## Troubleshooting
 
-### Success Path
+### Documents Not Processing
 
-```
-1. User uploads document.pdf via React app
-2. Frontend calls POST /upload API
-3. Upload Lambda generates presigned S3 URL
-4. Upload Lambda stores name mapping in document-names table
-5. Frontend uploads file directly to S3 using presigned URL
-6. S3 emits "Object Created" event to EventBridge
-7. EventBridge triggers Step Functions state machine
-8. State Machine executes:
-   a. Duplicate Check Lambda
-      - Downloads document from S3
-      - Computes SHA-256 hash
-      - Checks hash-registry table
-      - If duplicate: Go to step 8h
-      - If new: Store hash, continue to step 8b
-   b. Textract Start Lambda
-      - Calls StartDocumentTextDetection
-      - Returns jobId
-   c. Wait 10 seconds (Step Functions Wait state)
-   d. Textract Status Lambda
-      - Calls GetDocumentTextDetection with jobId
-      - If IN_PROGRESS: Loop back to step 8c
-      - If SUCCEEDED: Continue with extracted text
-      - If FAILED: Go to error handling
-   e. Comprehend Analyze Lambda
-      - DetectDominantLanguage
-      - DetectEntities
-      - DetectKeyPhrases
-      - Return NLP results
-   f. Bedrock Summarize Lambda
-      - Call Claude 3 Sonnet with extracted text
-      - Generate 2-3 sentence summary
-      - Extract key insights
-      - Extract structured data (dates, amounts, etc.)
-   g. Store Metadata Lambda
-      - Query document-names table for original filename
-      - Write all metadata to document-metadata table
-      - Status: PROCESSED
-   h. (Duplicate path) Store Metadata Lambda
-      - Write minimal metadata to document-metadata table
-      - Status: DUPLICATE
-      - Reference original document
-9. State Machine completes successfully
-10. User queries documents via /search API
-11. Search Lambda queries document-metadata table
-12. Results displayed in React dashboard
+**Check:**
+1. EventBridge rule enabled
+2. Step Functions execution in CloudWatch
+3. DLQ for error messages
+4. Lambda logs for specific function errors
+
+**Commands:**
+```bash
+# Check Step Functions executions
+aws stepfunctions list-executions --state-machine-arn <arn> --status-filter FAILED
+
+# Check DLQ
+aws sqs receive-message --queue-url <dlq-url> --max-number-of-messages 10
+
+# View Lambda logs
+aws logs tail /aws/lambda/doc-textract-start-us-west-2 --follow
 ```
 
-### Error Path
+### API 401 Unauthorized
 
-```
-If any Lambda fails:
-1. Step Functions retries (up to 6 times with exponential backoff)
-2. If all retries exhausted:
-   a. Error logged to CloudWatch
-   b. Failed execution sent to SQS DLQ
-   c. CloudWatch Alarm detects DLQ message
-   d. SNS sends notification to administrators
-   e. Admin investigates via CloudWatch Logs
-   f. Admin can manually reprocess via:
-      - Get failed message from DLQ
-      - Fix issue
-      - Re-upload document or manually trigger state machine
-```
+**Cause:** Invalid or expired Cognito token (1-hour expiration)
+
+**Solution:** Re-authenticate to get fresh token
+
+### Textract Job Fails
+
+**Common Causes:**
+- File too large (>500 MB limit)
+- Unsupported format
+- KMS permissions issue (Textract can't decrypt S3 object)
+
+**Fix:** Check Textract Start Lambda logs and S3 bucket policy
+
+### High Costs
+
+**Check:** CloudWatch Cost Explorer by service
+
+**Common Issues:**
+- Too many Bedrock invocations
+- Textract processing unnecessary documents
+- CloudWatch log volume too high
+
+**Solutions:**
+- Implement caching for duplicate documents
+- Skip Textract for text-based PDFs
+- Reduce log retention
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: November 12, 2025  
-**Stack**: SimplifiedDocProcessorStackV3  
-**CDK Version**: 2.x  
-**Node.js Version**: 20.x
+## Technical Specifications
+
+**Runtime:** Node.js 20.x  
+**Region:** us-west-2 (primary), us-east-2 (DR)  
+**CDK Version:** 2.x  
+**CloudFormation Stack:** SimplifiedDocProcessorStackV3  
+**Last Verified:** November 12, 2025
+
+---
+
+**Document Status:** Production-Ready  
+**Accuracy:** Verified against deployed CloudFormation template
