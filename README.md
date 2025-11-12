@@ -4,6 +4,12 @@
 [![AWS](https://img.shields.io/badge/AWS-Serverless-orange)](https://aws.amazon.com/)
 [![CDK](https://img.shields.io/badge/AWS-CDK-blue)](https://aws.amazon.com/cdk/)
 
+> **⚠️ IMPORTANT: This README describes an old architecture. For the ACTUAL deployed infrastructure, see:**
+> - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete accurate architecture documentation
+> - **[AWS_DIAGRAM_CREATION_GUIDE.md](AWS_DIAGRAM_CREATION_GUIDE.md)** - Step-by-step guide to create AWS diagrams
+> - **[DIAGRAM_QUICK_REFERENCE.md](DIAGRAM_QUICK_REFERENCE.md)** - Printable checklist
+> - **[images/COMPONENT_SPECIFICATIONS.md](images/COMPONENT_SPECIFICATIONS.md)** - Component specifications table
+
 A production-ready serverless document processing pipeline that automatically extracts intelligence from documents using AWS AI services. Upload documents, get instant insights powered by Amazon Textract, Comprehend, and Bedrock (Claude Sonnet 4.5).
 
 ## 🎯 Features
