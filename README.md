@@ -9,13 +9,13 @@
 
 **Enterprise-grade serverless document processing powered by AWS AI services**
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Documentation](#-documentation) • [Cost](#-cost)
+[Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Cost](#-cost)
 
 </div>
 
 ---
 
-## 🎯 What This Does
+## What This Does
 
 Transform unstructured documents into searchable, actionable intelligence using AWS AI services:
 
@@ -35,29 +35,31 @@ Transform unstructured documents into searchable, actionable intelligence using 
 ## ✨ Features
 
 ### Core Capabilities
-- ✅ **OCR Text Extraction** - Extract text from scanned PDFs, images, and documents
-- ✅ **NLP Analysis** - Automatic language detection, named entity recognition, key phrase extraction
-- ✅ **AI Summarization** - Generate 2-3 sentence summaries with Claude 3 Sonnet
-- ✅ **Duplicate Detection** - SHA-256 hash-based duplicate detection (skip reprocessing)
-- ✅ **Multi-Format Support** - PDF, PNG, JPG, JPEG, TIFF (up to 500 MB)
+- **OCR Text Extraction** - Extract text from scanned PDFs, images, and documents
+- **NLP Analysis** - Automatic language detection, named entity recognition, key phrase extraction
+- **AI Summarization** - Generate 2-3 sentence summaries with Claude 3 Sonnet
+- **Duplicate Detection** - SHA-256 hash-based duplicate detection (skip reprocessing)
+- **Multi-Format Support** - PDF, PNG, JPG, JPEG, TIFF (up to 500 MB)
 
 ### Enterprise Features
-- ✅ **Authentication** - Cognito User Pool with OAuth 2.0 (admin-managed users)
-- ✅ **Encrypted Storage** - KMS-encrypted S3 buckets and DynamoDB tables
-- ✅ **Disaster Recovery** - DynamoDB Global Tables with us-east-2 replication (<1s RPO)
-- ✅ **Monitoring & Alerts** - CloudWatch dashboard, alarms, SNS notifications, DLQ
-- ✅ **Audit Logging** - CloudTrail with file validation for compliance
-- ✅ **Cost Optimization** - S3 lifecycle policies, duplicate detection, pay-per-request pricing
+- **Authentication** - Cognito User Pool with OAuth 2.0 (admin-managed users)
+- **Encrypted Storage** - KMS-encrypted S3 buckets and DynamoDB tables
+- **Disaster Recovery** - DynamoDB Global Tables with us-east-2 replication (<1s RPO)
+- **Monitoring & Alerts** - CloudWatch dashboard, alarms, SNS notifications, DLQ
+- **Audit Logging** - CloudTrail with file validation for compliance
+- **Cost Optimization** - S3 lifecycle policies, duplicate detection, pay-per-request pricing
 
 ### Developer Experience
-- ✅ **Infrastructure as Code** - AWS CDK (TypeScript) for reproducible deployments
-- ✅ **React Frontend** - Pre-built UI hosted on CloudFront
-- ✅ **REST API** - API Gateway with Cognito authorization
-- ✅ **Comprehensive Docs** - Architecture diagrams, API specs, troubleshooting guides
+- **Infrastructure as Code** - AWS CDK (TypeScript) for reproducible deployments
+- **React Frontend** - Pre-built UI hosted on CloudFront
+- **REST API** - API Gateway with Cognito authorization
+- **Comprehensive Docs** - Architecture diagrams, API specs, troubleshooting guides
 
 ---
 
-## 🏗️ Architecture
+### Architecture
+
+![Primary Architecture Flow](./IntelligentDoc_Processor__1_.png)
 
 ### High-Level Overview
 
@@ -68,10 +70,10 @@ Transform unstructured documents into searchable, actionable intelligence using 
        │ Cognito Auth
        ↓
 ┌─────────────────────────────────────────────────────┐
-│              API Gateway (REST API)                  │
+│              API Gateway (REST API)                 │
 ├─────────────────────────────────────────────────────┤
 │  /upload (POST)  │  /search (GET/POST)  │  /health  │
-└──────┬───────────┴──────────┬─────────────┴─────────┘
+└──────┬───────────┴──────────┬───────────┴───────────┘
        │                       │
        ↓                       ↓
 ┌──────────────┐       ┌──────────────┐
@@ -84,8 +86,8 @@ Transform unstructured documents into searchable, actionable intelligence using 
 │  S3 Documents       │ │  DynamoDB Tables    │
 │  (KMS Encrypted)    │ │  - Metadata         │
 └──────┬──────────────┘ │  - Document Names   │
-       │                 │  - Hash Registry    │
-       │ Object Created  └─────────────────────┘
+       │                │  - Hash Registry    │
+       │ Object Created └─────────────────────┘
        ↓                         
 ┌────────────────┐              Replicated to us-east-2
 │  EventBridge   │              (DR region)
@@ -127,8 +129,6 @@ Transform unstructured documents into searchable, actionable intelligence using 
 **Stack Name:** `SimplifiedDocProcessorStackV3`  
 **Runtime:** Node.js 20.x  
 **Regions:** us-west-2 (primary), us-east-2 (DR replica)
-
-📖 **Detailed Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) | [COMPONENT_SPECIFICATIONS.md](images/COMPONENT_SPECIFICATIONS.md)
 
 ---
 
@@ -375,7 +375,6 @@ aws logs tail /aws/lambda/doc-textract-start-us-west-2 --follow
 **Current Configuration:**
 - ✅ **DynamoDB Global Tables** replicated to us-east-2 (active-active, <1s latency)
 - ✅ **Deletion protection** enabled on DR region tables
-- ❌ **S3 documents** NOT replicated (manual S3 replication required)
 
 **Recovery Metrics:**
 - **RPO (Data):** <1 second (DynamoDB only)
@@ -387,10 +386,6 @@ aws logs tail /aws/lambda/doc-textract-start-us-west-2 --follow
 2. Deploy stack: `cdk deploy SimplifiedDocProcessorStackV3 --region us-east-2`
 3. Update frontend config with new API Gateway endpoint
 4. Recreate Cognito users in us-east-2
-
-📖 **Complete DR Playbook:** [ARCHITECTURE.md#disaster-recovery](ARCHITECTURE.md#disaster-recovery)
-
----
 
 ## 🐛 Troubleshooting
 
@@ -442,18 +437,6 @@ aws logs tail /aws/lambda/doc-textract-start-us-west-2 --follow
 📖 **Full Troubleshooting Guide:** [ARCHITECTURE.md#troubleshooting](ARCHITECTURE.md)
 
 ---
-
-## 📖 Documentation
-
-### Complete Technical Docs
-
-| Document | Description |
-|----------|-------------|
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Complete system architecture, workflows, security, DR |
-| **[COMPONENT_SPECIFICATIONS.md](images/COMPONENT_SPECIFICATIONS.md)** | Lambda specs, DynamoDB schemas, API endpoints, costs |
-| **[AWS_DIAGRAM_CREATION_GUIDE.md](AWS_DIAGRAM_CREATION_GUIDE.md)** | Step-by-step AWS architecture diagram creation |
-| **[DIAGRAM_QUICK_REFERENCE.md](DIAGRAM_QUICK_REFERENCE.md)** | Printable checklist (30 components, 28 connections) |
-| **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** | Central navigation hub for all documentation |
 
 ### API Reference
 
@@ -537,27 +520,6 @@ aws kms schedule-key-deletion --key-id $KMS_KEY_ID --pending-window-in-days 7
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Please:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. **Update documentation** when changing infrastructure
-4. Test changes thoroughly
-5. Commit: `git commit -m 'Add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Open a Pull Request
-
-**When modifying infrastructure:**
-- Update CDK code in `backend/lib/`
-- Update `ARCHITECTURE.md` with new resources
-- Update `COMPONENT_SPECIFICATIONS.md` tables
-- Update this README if user-facing
-- Include deployment test results
-
----
-
 ## 📜 License
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
@@ -566,26 +528,9 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 ## 🔗 Quick Links
 
-- **Repository:** [github.com/annabook21/IntelligentDoc_Processor](https://github.com/annabook21/IntelligentDoc_Processor)
 - **Issues:** [Report a bug](https://github.com/annabook21/IntelligentDoc_Processor/issues)
 - **AWS Bedrock Docs:** [docs.aws.amazon.com/bedrock](https://docs.aws.amazon.com/bedrock/)
 - **AWS CDK Docs:** [docs.aws.amazon.com/cdk](https://docs.aws.amazon.com/cdk/)
 - **AWS Step Functions:** [docs.aws.amazon.com/step-functions](https://docs.aws.amazon.com/step-functions/)
-
----
-
-## ⭐ Star History
-
-If this project helps you, consider giving it a star! ⭐
-
----
-
-<div align="center">
-
-**Built with AWS serverless technologies**
-
-[CDK](https://aws.amazon.com/cdk/) • [Step Functions](https://aws.amazon.com/step-functions/) • [Lambda](https://aws.amazon.com/lambda/) • [Textract](https://aws.amazon.com/textract/) • [Comprehend](https://aws.amazon.com/comprehend/) • [Bedrock](https://aws.amazon.com/bedrock/)
-
-**Stack:** SimplifiedDocProcessorStackV3 • **Runtime:** Node.js 20.x • **Last Updated:** November 12, 2025
 
 </div>
