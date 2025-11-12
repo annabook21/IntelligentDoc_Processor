@@ -59,7 +59,7 @@ Transform unstructured documents into searchable, actionable intelligence using 
 
 ### Architecture
 
-![Primary Architecture Flow](./IntelligentDoc_Processor__1_.png)
+![Primary Architecture Flow](./IntelligentDoc_Processor (1).png)
 
 ### High-Level Overview
 
