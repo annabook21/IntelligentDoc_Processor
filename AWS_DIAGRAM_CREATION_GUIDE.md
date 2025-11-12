@@ -1,8 +1,9 @@
 # AWS Architecture Diagram Creation Guide
-## Intelligent Document Processor - Visual Design Instructions
+## Intelligent Document Processor (SimplifiedDocProcessorStackV3)
 
 **Last Updated:** November 12, 2025  
-**Recommended Tool:** diagrams.net (draw.io), Lucidchart, or AWS Architecture Icons for PowerPoint/Sketch
+**Stack:** SimplifiedDocProcessorStackV3  
+**Recommended Tool:** diagrams.net (draw.io), Lucidchart, or AWS Architecture Icons
 
 ---
 
@@ -21,76 +22,53 @@
 
 ### Option 1: diagrams.net (draw.io) - FREE & RECOMMENDED
 
-1. **Access the Tool:**
-   - Web: https://app.diagrams.net/
-   - Desktop: Download from https://github.com/jgraph/drawio-desktop/releases
-   - VS Code: Install "Draw.io Integration" extension
-
-2. **Import AWS Icon Library:**
+1. **Access**: https://app.diagrams.net/ (web) or download desktop app
+2. **Import AWS Icons**:
    ```
    File → Open Library from → URL
    Paste: https://raw.githubusercontent.com/m-radzikowski/aws-icons-for-plantuml/main/drawio/AWS-Architecture-Icons.xml
    ```
-   
-   Or manually:
-   - Download AWS Architecture Icons: https://aws.amazon.com/architecture/icons/
-   - Unzip the package
-   - In draw.io: `File → Open Library → Select the AWS-Architecture-Icons folder`
+3. **Canvas Settings**:
+   - Page Size: A4 Landscape (11" × 8.5") or 1920×1200px
+   - Grid: 10pt with snap-to-grid enabled
+   - Background: White or #F7F9FA
 
-3. **Canvas Settings:**
-   - Page Size: A4 Landscape (11" x 8.5") or Custom (1920 x 1200 px for digital)
-   - Grid: 10pt grid with snap-to-grid enabled
-   - Background: White or light gray (#F7F9FA)
+### Option 2: Download AWS Icons Directly
 
-### Option 2: Lucidchart - PAID (Professional Diagrams)
-
-1. Go to https://www.lucidchart.com/
-2. Create account (free trial available)
-3. New Document → Import Shape Library → Search "AWS"
-4. Enable "AWS Architecture 2023" library
-
-### Option 3: PowerPoint/Keynote - OFFLINE OPTION
-
-1. Download AWS Architecture Icons (PNG/SVG): https://aws.amazon.com/architecture/icons/
-2. Unzip to get icon folders organized by service category
-3. Insert icons as images, arrange manually
+1. Visit: https://aws.amazon.com/architecture/icons/
+2. Download: AWS Architecture Icons (May 2023 or later)
+3. Unzip and import into your tool
 
 ---
 
 ## AWS Icon Library
 
-### Icon Categories Needed for This Architecture
+### Required Services (24 icons)
 
-Download from: https://aws.amazon.com/architecture/icons/ (Latest: AWS Architecture Icons - May 2023)
+| Category | Service | Icon File | Size |
+|----------|---------|-----------|------|
+| **Compute** | AWS Lambda | `Arch_AWS-Lambda_64.png` | 64×64 |
+| **Storage** | Amazon S3 | `Arch_Amazon-S3_64.png` | 64×64 |
+| **Database** | Amazon DynamoDB | `Arch_Amazon-DynamoDB_64.png` | 64×64 |
+| **Application Integration** | AWS Step Functions | `Arch_AWS-Step-Functions_64.png` | 64×64 |
+| **Application Integration** | Amazon EventBridge | `Arch_Amazon-EventBridge_64.png` | 64×64 |
+| **Application Integration** | Amazon SQS | `Arch_Amazon-Simple-Queue-Service_64.png` | 64×64 |
+| **Application Integration** | Amazon SNS | `Arch_Amazon-Simple-Notification-Service_64.png` | 64×64 |
+| **Machine Learning** | Amazon Textract | `Arch_Amazon-Textract_64.png` | 64×64 |
+| **Machine Learning** | Amazon Comprehend | `Arch_Amazon-Comprehend_64.png` | 64×64 |
+| **Machine Learning** | Amazon Bedrock | `Arch_Amazon-Bedrock_64.png` | 64×64 |
+| **Networking** | Amazon CloudFront | `Arch_Amazon-CloudFront_64.png` | 64×64 |
+| **Networking** | Amazon API Gateway | `Arch_Amazon-API-Gateway_64.png` | 64×64 |
+| **Security** | Amazon Cognito | `Arch_Amazon-Cognito_64.png` | 64×64 |
+| **Security** | AWS KMS | `Arch_AWS-Key-Management-Service_64.png` | 64×64 |
+| **Management** | AWS CloudTrail | `Arch_AWS-CloudTrail_64.png` | 64×64 |
+| **Management** | Amazon CloudWatch | `Arch_Amazon-CloudWatch_64.png` | 64×64 |
+| **General** | User | `Arch_User_64.png` | 48×48 |
+| **General** | AWS Cloud | `Arch_AWS-Cloud_64.png` | 64×64 |
 
-**Services You'll Need:**
-
-| Category | Service | Icon File Name |
-|----------|---------|----------------|
-| **Compute** | AWS Lambda | `Arch_AWS-Lambda_64.png` |
-| **Storage** | Amazon S3 | `Arch_Amazon-Simple-Storage-Service_64.png` |
-| **Database** | Amazon DynamoDB | `Arch_Amazon-DynamoDB_64.png` |
-| **Analytics** | Amazon OpenSearch Service | `Arch_Amazon-OpenSearch-Service_64.png` |
-| **Application Integration** | Amazon EventBridge | `Arch_Amazon-EventBridge_64.png` |
-| **Machine Learning** | Amazon Bedrock | `Arch_Amazon-Bedrock_64.png` |
-| **Networking & Content Delivery** | Amazon VPC | `Arch_Amazon-Virtual-Private-Cloud_64.png` |
-| **Networking** | VPC Endpoints | `Res_Amazon-VPC_Endpoints_64.png` |
-| **Networking** | NAT Gateway | `Res_Amazon-VPC_NAT-Gateway_64.png` |
-| **Networking** | Security Group | `Res_Amazon-VPC_Security-Group_64.png` |
-| **Security, Identity & Compliance** | AWS KMS | `Arch_AWS-Key-Management-Service_64.png` |
-| **Management & Governance** | AWS CloudTrail | `Arch_AWS-CloudTrail_64.png` |
-| **Management & Governance** | Amazon CloudWatch | `Arch_Amazon-CloudWatch_64.png` |
-| **Networking & Content Delivery** | Amazon API Gateway | `Arch_Amazon-API-Gateway_64.png` |
-| **Application Integration** | Amazon SNS | `Arch_Amazon-Simple-Notification-Service_64.png` |
-| **Application Integration** | Amazon SQS | `Arch_Amazon-Simple-Queue-Service_64.png` |
-| **General** | User | `Arch_User_64.png` |
-| **General** | AWS Cloud | `Arch_AWS-Cloud_64.png` |
-
-**Resource Icons (Smaller Components):**
-- `Res_AWS-Lambda_Lambda-Function_64.png`
-- `Res_Amazon-API-Gateway_Endpoint_64.png`
-- `Res_Amazon-CloudWatch_Alarm_64.png`
-- `Res_Amazon-CloudWatch_Dashboard_64.png`
+**Resource Icons (smaller)**:
+- CloudWatch Alarm: `Res_Amazon-CloudWatch_Alarm_48.png`
+- CloudWatch Dashboard: `Res_Amazon-CloudWatch_Dashboard_48.png`
 
 ---
 
@@ -99,328 +77,352 @@ Download from: https://aws.amazon.com/architecture/icons/ (Latest: AWS Architect
 ### Canvas Organization (Left to Right Flow)
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                                                                        │
-│  [Client]  →  [API]  →  [VPC: Lambda + OpenSearch]  →  [Data Stores] │
-│                                                                        │
-│  [S3 Upload]  →  [EventBridge]  →  [Bedrock Flow]  →  [DynamoDB]    │
-│                                                                        │
-│  [Security Layer (KMS, CloudTrail, IAM)]                              │
-│                                                                        │
-│  [Monitoring Layer (CloudWatch, SNS, DLQ)]                            │
-│                                                                        │
-└────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  [User/Browser] → [CloudFront] → [S3 Frontend]                  │
+│        ↓                                                          │
+│  [Cognito Auth] → [API Gateway] → [Lambda API]                  │
+│                          ↓                                        │
+│  [S3 Documents] → [EventBridge] → [Step Functions]              │
+│        ↓                                ↓                         │
+│  [6 Processing Lambdas] → [AI Services] → [DynamoDB Tables]     │
+│                                                                   │
+│  [Bottom: Security (KMS, CloudTrail)]                            │
+│  [Right Side: Monitoring (CloudWatch, SNS, DLQ)]                 │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
 ```
-
-### Grouping Strategy (Use Containers/Swimlanes)
-
-1. **VPC Container** (Large rectangle with rounded corners)
-   - Nested: Public Subnets, Private Subnets, Security Groups
-   
-2. **Security Layer Container** (Bottom section)
-   - KMS, CloudTrail, IAM roles
-   
-3. **Monitoring Layer Container** (Top right or bottom)
-   - CloudWatch, SNS, Alarms, DLQ
 
 ---
 
 ## Step-by-Step Component Placement
 
-### Step 1: Create VPC Container (Foundation)
+### Step 1: Client & Frontend Layer (Top Left)
 
-**Draw.io Instructions:**
-1. Drag a **Rectangle** shape (rounded corners)
-2. Size: 800px wide × 500px tall
-3. Fill: Light blue (#E8F4F8) with 50% opacity
-4. Border: Solid 2pt, dark blue (#0066CC)
-5. Label: "VPC: DocProcessorVPC (us-west-2)"
-6. Position: Center-left of canvas
+**Position**: Far left, top
 
-**Components Inside VPC:**
+1. **User Icon** (48×48)
+   - Label: "👤 User"
+   - Position: (100, 100)
 
-#### A. Public Subnet (Upper half of VPC)
-- Rectangle: 350px × 150px
-- Fill: Light green (#E8F5E9)
-- Label: "Public Subnet (AZ 1 & 2)"
-- Place: Top of VPC container
+2. **Web Browser** (text box or generic device icon)
+   - Label: "Web Browser"
+   - Position: (100, 200)
 
-**Inside Public Subnet:**
-- **NAT Gateway** icon
-  - Position: Center of public subnet
-  - Label below: "NAT Gateway\n(Single instance)"
+3. **CloudFront** (64×64)
+   - Label: "CloudFront Distribution\nHTTPS Only\nHTTP/2"
+   - Position: (300, 200)
 
-#### B. Private Subnet (Lower half of VPC)
-- Rectangle: 700px × 300px
-- Fill: Light orange (#FFF3E0)
-- Label: "Private Subnet with Egress (AZ 1 & 2)"
-- Place: Bottom 2/3 of VPC container
-
-**Inside Private Subnet:**
-
-1. **Lambda Function (API Handler)**
-   - AWS Lambda icon
-   - Label: "λ API Handler\n30s timeout\nVPC-attached"
-   - Position: Left side
-
-2. **OpenSearch Domain**
-   - OpenSearch icon (2 icons side-by-side to show Multi-AZ)
-   - Label: "OpenSearch 2.3\nMulti-AZ: 2 nodes\nt3.small.search"
-   - Position: Right side
-
-3. **Security Groups** (Overlay as small shields)
-   - Lambda SG: Near Lambda icon (green shield)
-   - OpenSearch SG: Near OpenSearch icon (orange shield)
-
-#### C. VPC Endpoints (Bottom of VPC, outside subnets)
-- Draw small icons or use VPC Endpoint resource icon
-- **S3 Gateway Endpoint** (left)
-- **DynamoDB Gateway Endpoint** (right)
-- Style: Dashed border, light purple fill
-
----
-
-### Step 2: Place External Client Layer (Far Left)
-
-**Outside VPC, left side:**
-
-1. **User Icon**
-   - AWS User icon
-   - Label: "👤 User/Application"
-   - Position: Far left, vertically centered
-
-2. **AWS CLI/SDK Text**
-   - Small text box: "AWS CLI / SDK / Boto3"
-
----
-
-### Step 3: Place API Gateway (Between Client and VPC)
-
-**Position:** Between User and VPC container
-
-1. **API Gateway Icon**
-   - Label: "API Gateway REST API\nIAM Authentication"
-   - Style: Orange AWS color (#FF9900)
-
-2. **API Endpoints** (Small boxes below API Gateway)
-   - Box 1: "GET /health (Public)"
-   - Box 2: "GET/POST /search (IAM)"
-   - Box 3: "GET /metadata/:id (IAM)"
-   - Layout: 3 small rectangles in a row
-
-**Connection:**
-- User → API Gateway: Solid arrow, label "HTTPS"
-- API Gateway → Lambda (API Handler): Solid arrow, label "Invoke"
-
----
-
-### Step 4: Place S3 and Event Processing Flow (Top Center)
-
-**Above VPC or to the right:**
-
-1. **S3 Bucket Icon**
-   - Amazon S3 icon
-   - Label: "S3 Documents Bucket\nKMS Encrypted\nVersioned\nEventBridge Enabled"
-   - Position: Top-center
-
-2. **EventBridge Icon**
-   - EventBridge icon
-   - Label: "EventBridge\nObject Created Event"
-   - Position: Right of S3
-
-3. **Lambda (Flow Invoker)**
-   - Lambda icon
-   - Label: "λ Flow Invoker\n5min timeout"
-   - Position: Right of EventBridge
-
-4. **Bedrock Flow Icon**
-   - Bedrock icon (or generic AI icon)
-   - Label: "🤖 Bedrock Flow\nClaude Sonnet 3\nDocument Processing"
-   - Position: Right of Flow Invoker
+4. **S3 Frontend Bucket** (64×64)
+   - Label: "S3 Frontend Bucket\nReact Static Site\nKMS Encrypted"
+   - Position: (500, 200)
 
 **Connections:**
-- User → S3: Dashed arrow, label "Upload Document"
-- S3 → EventBridge: Solid arrow, label "Object Created"
-- EventBridge → Flow Invoker: Solid arrow, label "Trigger"
-- Flow Invoker → Bedrock Flow: Solid arrow, label "InvokeFlow API"
+- User → Browser: Solid line
+- Browser → CloudFront: Solid arrow, label "HTTPS"
+- CloudFront → S3 Frontend: Solid arrow, label "OAC"
 
 ---
 
-### Step 5: Place Data Stores (Far Right)
+### Step 2: Authentication Layer (Left, Below Frontend)
 
-**Right side of canvas:**
+**Position**: Below CloudFront
 
-1. **DynamoDB Table**
-   - DynamoDB icon
-   - Label: "DynamoDB\nMetadata Table\nPK: documentId\nSK: processingDate"
+1. **Cognito User Pool** (64×64)
+   - Label: "Cognito User Pool\nidp-901916-uswe\nAdmin Create Only"
+   - Position: (300, 400)
+
+2. **Cognito Authorizer** (smaller, 32×32 or text box)
+   - Label: "Cognito Authorizer"
+   - Position: (450, 550)
+
+**Connections:**
+- Browser ↔ Cognito: Dashed bidirectional, label "Sign In / Token"
+
+---
+
+### Step 3: API Layer (Center Left)
+
+**Position**: Below authentication
+
+1. **API Gateway** (64×64)
+   - Label: "API Gateway REST API\nCognito Auth\nThrottle: 100 req/s"
+   - Position: (300, 650)
+
+2. **Upload Lambda** (64×64)
+   - Label: "λ Upload Handler\n30s timeout\nPresigned URLs"
+   - Position: (150, 850)
+
+3. **Search Lambda** (64×64)
+   - Label: "λ Search Handler\n30s timeout\nQuery DynamoDB"
+   - Position: (450, 850)
+
+**Connections:**
+- Browser → API Gateway: Solid arrow, label "API Call + Token"
+- API Gateway → Cognito Authorizer: Solid arrow, label "Verify"
+- API Gateway → Upload Lambda: Solid arrow, label "/upload"
+- API Gateway → Search Lambda: Solid arrow, label "/search, /metadata, /health"
+
+---
+
+### Step 4: Document Storage & Event Processing (Center)
+
+**Position**: Center of canvas
+
+1. **S3 Documents Bucket** (64×64)
+   - Label: "S3 Documents Bucket\nKMS Encrypted\nVersioned\nEventBridge Enabled"
+   - Position: (700, 500)
+
+2. **EventBridge** (64×64)
+   - Label: "EventBridge\nObject Created Event"
+   - Position: (900, 500)
+
+3. **Step Functions** (64×64, distinctive color)
+   - Label: "Step Functions\nState Machine\n30min timeout"
+   - Position: (1100, 500)
+
+**Connections:**
+- Upload Lambda → S3 Docs: Dashed arrow, label "Presigned URL"
+- Browser → S3 Docs: Dashed arrow, label "PUT file"
+- S3 Docs → EventBridge: Solid arrow (bold), label "Object Created"
+- EventBridge → Step Functions: Solid arrow (bold), label "Trigger"
+
+---
+
+### Step 5: Processing Lambda Functions (Center, arranged in a row)
+
+**Position**: Below Step Functions
+
+Create a horizontal row of 6 Lambda icons (each 64×64):
+
+1. **Duplicate Check** (200, 750)
+   - Label: "λ Duplicate Check\n60s\nSHA-256"
+
+2. **Textract Start** (350, 750)
+   - Label: "λ Textract Start\n30s\nAsync Job"
+
+3. **Textract Status** (500, 750)
+   - Label: "λ Textract Status\n30s\nPolling"
+
+4. **Comprehend Analyze** (650, 750)
+   - Label: "λ Comprehend\n30s\nNLP"
+
+5. **Bedrock Summarize** (800, 750)
+   - Label: "λ Bedrock\n45s\nClaude 3"
+
+6. **Store Metadata** (950, 750)
+   - Label: "λ Store Metadata\n30s\nDynamoDB"
+
+**Connections from Step Functions:**
+- Step Functions → All 6 Lambdas: Solid arrows showing orchestration flow
+- Add numbers (1, 2, 3, 4, 5, 6) on connection lines to show sequence
+
+---
+
+### Step 6: AI Services (Below Processing Lambdas)
+
+**Position**: Bottom center
+
+1. **Amazon Textract** (64×64)
+   - Label: "Amazon Textract\nText Extraction\nOCR"
+   - Position: (425, 950)
+
+2. **Amazon Comprehend** (64×64)
+   - Label: "Amazon Comprehend\nNLP Analysis"
+   - Position: (650, 950)
+
+3. **Amazon Bedrock** (64×64)
+   - Label: "Amazon Bedrock\nClaude Sonnet 3\nSummarization"
+   - Position: (800, 950)
+
+**Connections:**
+- Textract Start → Textract: Solid arrow, label "StartJob"
+- Textract Status → Textract: Solid arrow, label "GetStatus"
+- Comprehend Lambda → Comprehend: Solid arrow, label "Detect*"
+- Bedrock Lambda → Bedrock: Solid arrow, label "InvokeModel"
+
+---
+
+### Step 7: DynamoDB Tables (Right Side)
+
+**Position**: Right side of canvas
+
+1. **Metadata Table** (64×64)
+   - Label: "DynamoDB Global Table\nMetadata\nPK: documentId\nSK: processingDate"
+   - Position: (1400, 400)
    - Add small box below: "GSI: LanguageIndex"
 
-2. **OpenSearch** (Already placed in VPC)
-   - Draw connection from API Handler → OpenSearch (inside VPC)
+2. **Document Names Table** (64×64)
+   - Label: "DynamoDB Global Table\nDocument Names\nPK: documentId"
+   - Position: (1400, 600)
+   - Add small box below: "GSI: S3KeyIndex"
+
+3. **Hash Registry Table** (64×64)
+   - Label: "DynamoDB Global Table\nHash Registry\nPK: contentHash"
+   - Position: (1400, 800)
+
+4. **DR Replicas** (group of 3 smaller icons, 48×48)
+   - Label: "DR Region: us-east-2\nReplicas (Deletion Protected)"
+   - Position: (1600, 600)
+   - Show 3 small database icons
 
 **Connections:**
-- Flow Invoker → DynamoDB: Solid arrow, label "PutItem"
-- API Handler → DynamoDB: Solid arrow, label "Query/Scan"
-- API Handler → OpenSearch: Solid arrow, label "Search"
+- Upload Lambda → Document Names: Solid arrow, label "PutItem"
+- Search Lambda → Metadata Table: Solid arrow, label "Query/Scan"
+- Search Lambda → Document Names: Solid arrow, label "Query"
+- Duplicate Check → Hash Registry: Solid arrow, label "Check/Store"
+- Store Metadata → Metadata Table: Solid arrow, label "PutItem"
+- All 3 primary tables → DR replicas: Dashed arrows, label "Auto-replicate"
 
 ---
 
-### Step 6: Security Layer (Bottom Section)
+### Step 8: Security Layer (Bottom Container)
 
-**Create a horizontal container at the bottom:**
+**Position**: Bottom of canvas, full width
 
-**Container:**
-- Rectangle: Full width, 100px tall
-- Fill: Light yellow (#FFFDE7)
+**Create a container** (rectangle with light yellow fill):
+- Size: 1800px wide × 120px tall
+- Fill: #FFFDE7 (light yellow), 50% opacity
 - Label: "Security & Encryption"
+- Position: (50, 1100)
 
-**Inside Container (Left to Right):**
+**Inside the container (left to right):**
 
-1. **KMS Icon**
-   - Label: "AWS KMS\nCustomer Managed Key\nAuto-rotation"
-   
-2. **CloudTrail Icon**
-   - Label: "CloudTrail\nAudit Logging"
-   
-3. **IAM Role Icons** (3 small icons)
-   - "Flow Execution Role"
-   - "Lambda Execution Roles"
-   - "API Handler Role"
+1. **KMS Key** (48×48)
+   - Label: "AWS KMS\nCustomer Managed\nAuto-rotation"
+   - Position: (200, 1130)
 
-**Connections (Dashed lines showing encryption):**
-- KMS → S3 (dashed, label "Encrypts")
-- KMS → DynamoDB (dashed, label "Encrypts")
-- KMS → OpenSearch (dashed, label "Encrypts")
+2. **CloudTrail** (48×48)
+   - Label: "CloudTrail\nAudit Logging\nFile Validation"
+   - Position: (500, 1130)
+
+3. **IAM Roles** (text or small icons)
+   - Label: "IAM Execution Roles\nLeast Privilege"
+   - Position: (800, 1130)
+
+**Connections (dashed lines from KMS):**
+- KMS → S3 Documents: Dashed, label "Encrypts"
+- KMS → S3 Frontend: Dashed, label "Encrypts"
+- KMS → SQS DLQ: Dashed, label "Encrypts"
 
 ---
 
-### Step 7: Monitoring Layer (Right Side or Top Right)
+### Step 9: Monitoring Layer (Right Side Container)
 
-**Create a container:**
-- Rectangle: 300px × 400px
-- Fill: Light pink (#FCE4EC)
+**Position**: Top right corner
+
+**Create a container** (rectangle with light pink fill):
+- Size: 350px wide × 500px tall
+- Fill: #FCE4EC (light pink), 50% opacity
 - Label: "Monitoring & Alerting"
-- Position: Top-right corner
+- Position: (1650, 50)
 
-**Inside Container (Top to Bottom):**
+**Inside the container (top to bottom):**
 
-1. **CloudWatch Logs Icon**
-   - Label: "CloudWatch Logs"
+1. **CloudWatch Logs** (48×48)
+   - Label: "CloudWatch Logs\n90-day retention"
 
-2. **CloudWatch Dashboard Icon**
-   - Label: "Dashboard\nFlow Metrics, API Metrics"
+2. **CloudWatch Dashboard** (48×48)
+   - Label: "Dashboard\nDoc Processing Metrics"
 
-3. **CloudWatch Alarm Icon** (2 icons)
-   - "Flow Error Alarm"
-   - "DLQ Messages Alarm"
+3. **CloudWatch Alarm** (48×48)
+   - Label: "DLQ Alarm\n≥1 message"
 
-4. **SNS Topic Icon**
+4. **CloudWatch Alarm** (48×48)
+   - Label: "Workflow Failure Alarm\n≥1 failure"
+
+5. **SNS Topic** (48×48)
    - Label: "SNS Topic\nAlert Notifications"
 
-5. **SQS Queue Icon**
+6. **SQS DLQ** (48×48)
    - Label: "SQS DLQ\n14-day retention"
 
 **Connections:**
-- All Lambdas → CloudWatch Logs: Thin arrows
-- CloudWatch Alarms → SNS: Solid arrow, label "Trigger"
-- Lambdas → DLQ (on error): Dashed red arrow
-
----
-
-### Step 8: Add Flow Creator Lambda (Infrastructure Component)
-
-**Position:** Near Bedrock Flow, slightly below
-
-1. **Lambda Icon**
-   - Label: "λ Flow Creator\nCustom Resource\n5min timeout"
-   
-2. **CloudFormation Icon** (Optional)
-   - Small icon above Flow Creator
-   - Label: "CloudFormation Stack"
-
-**Connection:**
-- Flow Creator → Bedrock Flow: Dashed arrow, label "Create/Update/Delete"
+- All Lambdas → CloudWatch Logs: Thin gray arrows
+- Step Functions → CloudWatch Logs: Thin gray arrow
+- API Gateway → CloudWatch Logs: Thin gray arrow
+- CloudWatch Logs → Dashboard: Thin arrow
+- DLQ → Alarm: Solid arrow, label "Messages ≥1"
+- Step Functions → Alarm: Solid arrow, label "Failures ≥1"
+- Both Alarms → SNS: Solid arrows, label "Trigger"
+- All Lambdas → DLQ (on error): Red dashed arrows
 
 ---
 
 ## Connection Guidelines
 
-### Line Types and Meanings
+### Line Types
 
-| Line Type | Usage | Example |
-|-----------|-------|---------|
-| **Solid Arrow** | Data flow, API calls, triggers | User → API Gateway |
-| **Dashed Arrow** | Configuration, encryption, optional | KMS encrypts S3 |
-| **Dotted Arrow** | Asynchronous, eventual consistency | DynamoDB replication |
-| **Bold Arrow** | Primary/critical path | S3 → EventBridge → Lambda |
-| **Red Arrow** | Error flow, failures | Lambda → DLQ |
+| Type | Usage | Example |
+|------|-------|---------|
+| **Solid Bold Arrow** | Primary data flow | S3 → EventBridge → Step Functions |
+| **Solid Arrow** | API calls, invocations | API Gateway → Lambda |
+| **Dashed Arrow** | Async, configuration, encryption | KMS encrypts S3 |
+| **Thin Gray Arrow** | Logging, monitoring | Lambda → CloudWatch |
+| **Red Dashed Arrow** | Error flow | Lambda → DLQ |
 
-### Arrow Labels (Best Practices)
+### Arrow Labels
 
-- **Short and descriptive**: "HTTPS", "Invoke", "Query", "Trigger"
-- **Include protocol when relevant**: "HTTPS/TLS 1.2+", "IAM Auth"
-- **Show operations**: "PutItem", "GetObject", "InvokeFlow"
+Use short, clear labels:
+- "HTTPS", "Token", "Trigger", "Invoke"
+- "PutItem", "Query", "Scan"
+- "StartJob", "GetStatus", "InvokeModel"
+- "Encrypts", "Replicate", "Auto-sync"
 
 ### Connection Routing
 
-- **Minimize crossings**: Route around containers when possible
-- **Use waypoints**: Add bend points for cleaner 90-degree angles
-- **Group related connections**: Bundle multiple connections between same endpoints
+- **Minimize crossings**: Route around groups
+- **90-degree angles**: Use waypoints for clean turns
+- **Group related connections**: Bundle multiple arrows when possible
 
 ---
 
 ## Color Coding & Styling
 
-### AWS Service Colors (Official Palette)
+### AWS Official Colors
 
-| Service Category | Color (Hex) | Usage |
-|-----------------|-------------|-------|
-| **Compute** (Lambda) | #FF9900 (Orange) | Lambda function icons |
-| **Storage** (S3) | #569A31 (Green) | S3 buckets |
-| **Database** (DynamoDB) | #527FFF (Blue) | DynamoDB tables |
-| **Networking** (VPC) | #3F8624 (Dark Green) | VPC containers |
-| **Security** (KMS) | #DD344C (Red) | KMS, IAM, CloudTrail |
-| **AI/ML** (Bedrock) | #01A88D (Teal) | Bedrock Flow |
-| **Analytics** (OpenSearch) | #8C4FFF (Purple) | OpenSearch domain |
-| **Monitoring** (CloudWatch) | #E7157B (Pink) | CloudWatch services |
-| **Integration** (EventBridge) | #FF4F8B (Pink) | EventBridge, SNS, SQS |
+| Service | Hex Color |
+|---------|-----------|
+| **Lambda** | #FF9900 (Orange) |
+| **S3** | #569A31 (Green) |
+| **DynamoDB** | #527FFF (Blue) |
+| **Step Functions** | #E7157B (Pink/Magenta) |
+| **EventBridge** | #FF4F8B (Pink) |
+| **API Gateway** | #FF9900 (Orange) |
+| **CloudFront** | #8C4FFF (Purple) |
+| **Cognito** | #DD344C (Red) |
+| **KMS** | #DD344C (Red) |
+| **CloudWatch** | #E7157B (Pink) |
+| **SNS/SQS** | #FF4F8B (Pink) |
+| **Textract/Comprehend/Bedrock** | #FF9900 (Orange) |
 
 ### Container Styling
 
-**VPC Container:**
-- Fill: #E8F4F8 (Light blue), 30% opacity
-- Border: 3pt solid #0066CC (AWS blue)
+**Security Container:**
+- Fill: #FFFDE7 (light yellow)
+- Opacity: 50%
+- Border: 2pt solid #FFC107 (yellow)
 - Corner radius: 10px
 
-**Public Subnet:**
-- Fill: #E8F5E9 (Light green), 50% opacity
-- Border: 2pt dashed #4CAF50 (Green)
-
-**Private Subnet:**
-- Fill: #FFF3E0 (Light orange), 50% opacity
-- Border: 2pt dashed #FF9800 (Orange)
-
-**Security Layer:**
-- Fill: #FFFDE7 (Light yellow), 50% opacity
-- Border: 2pt solid #FFC107 (Yellow)
-
-**Monitoring Layer:**
-- Fill: #FCE4EC (Light pink), 50% opacity
-- Border: 2pt solid #E91E63 (Pink)
+**Monitoring Container:**
+- Fill: #FCE4EC (light pink)
+- Opacity: 50%
+- Border: 2pt solid #E91E63 (pink)
+- Corner radius: 10px
 
 ### Text Styling
 
 **Service Labels:**
 - Font: Arial or Helvetica
-- Size: 10-12pt
-- Weight: Bold for service names
+- Size: 11pt
+- Weight: Bold
 - Color: #232F3E (AWS dark blue)
 
-**Descriptions/Metadata:**
+**Descriptions:**
 - Font: Same as labels
-- Size: 8-10pt
+- Size: 9pt
 - Weight: Regular
-- Color: #687078 (Gray)
+- Color: #687078 (gray)
 
 **Container Titles:**
 - Font: Arial or Helvetica
@@ -428,243 +430,173 @@ Download from: https://aws.amazon.com/architecture/icons/ (Latest: AWS Architect
 - Weight: Bold
 - Color: Match border color
 
-### Icon Sizing
-
-- **Primary Services** (S3, DynamoDB, Lambda, Bedrock): 64px × 64px
-- **Secondary Services** (CloudWatch, SNS, KMS): 48px × 48px
-- **Resource Icons** (Security Groups, Endpoints): 32px × 32px
-- **User/Client Icons**: 48px × 48px
-
 ---
 
-## Detailed Layout Coordinates (For Precision)
+## Detailed Layout Coordinates
 
-### Canvas: 1920px × 1200px
+### Canvas: 2000px × 1250px
 
-**Key Component Positions (X, Y from top-left):**
+**Key Positions:**
 
 ```
-User Icon:                (100, 400)
-API Gateway:              (300, 400)
-VPC Container:            (550, 200) [800px × 600px]
-  - Public Subnet:        (600, 230) [700px × 150px]
-  - NAT Gateway:          (950, 290)
-  - Private Subnet:       (600, 400) [700px × 380px]
-  - Lambda (API Handler): (700, 500)
-  - OpenSearch:           (1100, 500)
-  - Lambda SG:            (680, 480) [small shield overlay]
-  - OpenSearch SG:        (1080, 480) [small shield overlay]
-  - VPC Endpoint (S3):    (700, 750)
-  - VPC Endpoint (DDB):   (1100, 750)
+User:                       (100, 100)
+Browser:                    (100, 200)
+CloudFront:                 (300, 200)
+S3 Frontend:                (500, 200)
+Cognito:                    (300, 400)
+API Gateway:                (300, 650)
+Upload Lambda:              (150, 850)
+Search Lambda:              (450, 850)
 
-S3 Bucket:                (550, 50)
-EventBridge:              (750, 50)
-Flow Invoker Lambda:      (950, 50)
-Bedrock Flow:             (1150, 50)
-Flow Creator Lambda:      (1150, 150) [below Bedrock]
+S3 Documents:               (700, 500)
+EventBridge:                (900, 500)
+Step Functions:             (1100, 500)
 
-DynamoDB Table:           (1500, 400)
-GSI Label:                (1500, 500) [small box]
+Processing Lambdas (row):
+  - Duplicate Check:        (200, 750)
+  - Textract Start:         (350, 750)
+  - Textract Status:        (500, 750)
+  - Comprehend:             (650, 750)
+  - Bedrock:                (800, 750)
+  - Store Metadata:         (950, 750)
 
-Security Container:       (100, 950) [1700px × 150px]
-  - KMS:                  (300, 1000)
-  - CloudTrail:           (600, 1000)
-  - IAM Roles:            (900, 1000)
+AI Services (row):
+  - Textract:               (425, 950)
+  - Comprehend:             (650, 950)
+  - Bedrock:                (800, 950)
 
-Monitoring Container:     (1550, 200) [350px × 500px]
-  - CloudWatch Logs:      (1600, 250)
-  - Dashboard:            (1600, 350)
-  - Alarms:               (1600, 450)
-  - SNS:                  (1600, 550)
-  - DLQ:                  (1600, 650)
+DynamoDB Tables (column):
+  - Metadata Table:         (1400, 400)
+  - Document Names:         (1400, 600)
+  - Hash Registry:          (1400, 800)
+  - DR Replicas:            (1600, 600)
+
+Security Container:         (50, 1100) [1800×120px]
+  - KMS:                    (200, 1130)
+  - CloudTrail:             (500, 1130)
+  - IAM Roles:              (800, 1130)
+
+Monitoring Container:       (1650, 50) [350×500px]
+  - CloudWatch Logs:        (1700, 100)
+  - Dashboard:              (1700, 200)
+  - DLQ Alarm:              (1700, 300)
+  - Workflow Alarm:         (1700, 400)
+  - SNS:                    (1700, 500)
+  - DLQ:                    (1700, 600)
 ```
-
----
-
-## Layer Organization (Z-Order)
-
-**Back to Front:**
-1. **Background containers** (VPC, Security, Monitoring)
-2. **Subnet containers** (Public, Private)
-3. **Connection lines** (arrows)
-4. **Service icons** (S3, Lambda, DynamoDB, etc.)
-5. **Labels and text**
-6. **Overlay icons** (Security Groups, small badges)
 
 ---
 
 ## Final Checklist
 
-### Before Exporting
+### Component Completeness
 
-- [ ] All AWS icons are official AWS Architecture Icons (2023 version)
-- [ ] VPC container clearly shows public/private subnet separation
-- [ ] Security Groups are visible and labeled
-- [ ] All Lambda functions show timeout duration
-- [ ] KMS encryption relationships are shown (dashed lines)
-- [ ] Data flow is left-to-right or top-to-bottom
-- [ ] Error flow (DLQ) is highlighted in red
-- [ ] Monitoring components are grouped together
-- [ ] API Gateway endpoints are labeled with auth type
-- [ ] OpenSearch shows Multi-AZ (2 nodes)
-- [ ] VPC endpoints are shown and labeled as "Gateway" type
-- [ ] NAT Gateway is labeled as "Single instance" (cost optimization note)
-- [ ] All connections have direction arrows
-- [ ] Critical paths have labels (e.g., "InvokeFlow", "Object Created")
-- [ ] Legend is included (optional but recommended)
+- [ ] All 8 Lambda functions shown with correct names
+- [ ] Step Functions state machine prominently displayed
+- [ ] 3 DynamoDB Global Tables with DR replicas
+- [ ] All 3 AI services (Textract, Comprehend, Bedrock)
+- [ ] Cognito authentication flow visible
+- [ ] CloudFront + S3 frontend hosting shown
+- [ ] API Gateway with all 4 endpoints labeled
+- [ ] KMS encryption relationships shown
+- [ ] Monitoring components grouped (CloudWatch, SNS, DLQ)
+- [ ] Security layer clearly separated
 
-### Accessibility & Clarity
+### Connection Accuracy
 
-- [ ] Font size ≥ 10pt for all text
-- [ ] Color contrast meets WCAG AA standards (4.5:1 for text)
-- [ ] Icons are distinct and recognizable at 50% zoom
-- [ ] No overlapping text or icons
-- [ ] Connection lines don't obscure icons or text
+- [ ] User → CloudFront → S3 Frontend flow
+- [ ] User → Cognito → API Gateway flow
+- [ ] S3 → EventBridge → Step Functions flow
+- [ ] Step Functions → 6 Processing Lambdas (numbered)
+- [ ] Processing Lambdas → AI Services
+- [ ] Lambdas → DynamoDB tables
+- [ ] DynamoDB → DR replicas (dashed)
+- [ ] KMS encryption lines (dashed)
+- [ ] Error flow to DLQ (red dashed)
+- [ ] Logging flow to CloudWatch (thin gray)
 
-### Export Settings
+### Styling Quality
 
-**For Digital Use (Documentation, Web):**
-- Format: PNG or SVG
-- Resolution: 300 DPI or vector
-- Size: 1920 × 1200px (16:10 ratio)
-- Background: Transparent or white
+- [ ] Official AWS icons used
+- [ ] AWS official colors applied
+- [ ] Consistent icon sizing (64×64 for primary, 48×48 for secondary)
+- [ ] Container backgrounds with proper opacity
+- [ ] Text readable at 50% zoom
+- [ ] No overlapping elements
+- [ ] Clean 90-degree angle connections
+- [ ] Proper line weights (bold for primary flow)
 
-**For Print:**
-- Format: PDF or high-res PNG
-- Resolution: 600 DPI
-- Size: A4 or Letter
-- Color Mode: CMYK (for professional printing)
+### Labels & Annotations
 
-**For Presentations:**
-- Format: PNG with transparent background
-- Resolution: 1920 × 1080px (16:9 ratio)
-- Optimize file size: < 2 MB
+- [ ] All services labeled with full names
+- [ ] Timeouts shown on Lambda functions
+- [ ] DynamoDB keys shown (PK/SK)
+- [ ] GSI indices labeled
+- [ ] Connection labels clear and concise
+- [ ] Region information visible (us-west-2, us-east-2)
+- [ ] Security features annotated (KMS, Encryption, Auth)
+
+### Export Quality
+
+- [ ] Format: PNG, 300 DPI
+- [ ] Size: 2000×1250px (16:10 ratio)
+- [ ] Background: White or transparent
+- [ ] File size: <3 MB
+- [ ] Save source file (.drawio, .lucid, etc.)
 
 ---
 
-## Alternative Layout: Simplified Version
+## Alternative: Simplified Version
 
-For presentations or executive summaries, create a simplified version:
+For executive presentations, create a simplified version:
 
-### Simplified Flow (Horizontal)
+### Simplified Flow (Horizontal, 5 main components)
 
 ```
-┌─────┐    ┌─────┐    ┌──────────┐    ┌──────┐    ┌──────┐
-│User │ →  │ API │ →  │  Lambda  │ ←  │  S3  │ →  │ DDB  │
-│     │    │ GW  │    │ (VPC)    │    │Bucket│    │Table │
-└─────┘    └─────┘    └──────────┘    └──────┘    └──────┘
-                             ↓
-                       ┌──────────┐
-                       │OpenSearch│
-                       │  (VPC)   │
-                       └──────────┘
+User → CloudFront/S3 → API Gateway → Step Functions → DynamoDB
+           ↓                            ↓              ↓
+       Cognito                    8 Lambdas      DR Replica
+                                       ↓
+                               AI Services
+                          (Textract, Comprehend,
+                                Bedrock)
 ```
 
-**Components to Include (Minimal):**
-1. User
-2. API Gateway
-3. Lambda (single icon for all 3 functions)
-4. S3 Bucket
-5. DynamoDB
-6. OpenSearch
-7. Bedrock Flow
-8. VPC container (background)
+**Include only:**
+- User + Browser
+- CloudFront + S3 Frontend
+- Cognito (for auth)
+- API Gateway
+- Step Functions (showing it orchestrates 8 Lambdas)
+- 3 AI service icons (grouped)
+- 3 DynamoDB tables
+- Monitoring box (CloudWatch + Alarms)
 
-**Components to Omit:**
-- Security Groups (mentioned in notes)
-- VPC Endpoints (mentioned in notes)
-- CloudWatch detailed components
-- IAM roles (mentioned in notes)
+**Omit:**
+- Individual Lambda details
+- S3 Documents bucket
+- EventBridge
+- KMS details
 - CloudTrail
-
----
-
-## Example Annotations (Text Boxes)
-
-Add these as callout boxes or numbered annotations:
-
-**1. VPC Isolation:**
-> "OpenSearch deployed in VPC with private endpoint only. No public internet access."
-
-**2. Cost Optimization:**
-> "Single NAT Gateway reduces costs by 50% (trade-off: not HA across AZs)."
-
-**3. Security:**
-> "All data encrypted at rest with customer-managed KMS key. Automatic key rotation enabled."
-
-**4. Monitoring:**
-> "CloudWatch Alarms notify via SNS when Flow invocations fail (>5 errors/5min) or DLQ has messages."
-
-**5. API Authentication:**
-> "API Gateway uses IAM authentication (AWS Signature V4). No Cognito required."
-
-**6. Event Processing:**
-> "S3 uploads trigger EventBridge → Lambda → Bedrock Flow for async document processing."
+- Specific connection labels
 
 ---
 
 ## Additional Resources
 
-### AWS Architecture Icons
-- **Official Download:** https://aws.amazon.com/architecture/icons/
-- **Icon Guidelines:** https://d1.awsstatic.com/webteam/architecture-icons/AWS_Architecture_Icon_Guidelines.pdf
-- **Color Palette:** https://d1.awsstatic.com/webteam/architecture-icons/AWS-Architecture-Assets-For-Light-BG.zip
+**AWS Official Resources:**
+- Architecture Icons: https://aws.amazon.com/architecture/icons/
+- Icon Guidelines: https://d1.awsstatic.com/webteam/architecture-icons/AWS_Architecture_Icon_Guidelines.pdf
+- Reference Architectures: https://aws.amazon.com/architecture/
 
-### AWS Well-Architected Framework
-- **Diagrams Guide:** https://aws.amazon.com/architecture/well-architected/
-
-### Diagram Tools
-- **draw.io:** https://app.diagrams.net/
-- **Lucidchart:** https://www.lucidchart.com/
-- **CloudCraft:** https://cloudcraft.co/ (3D AWS diagrams)
-- **Miro:** https://miro.com/templates/aws-architecture-diagram/
-
-### Templates
-- **AWS Architecture Diagrams:** https://aws.amazon.com/architecture/
-- **Reference Architectures:** https://aws.amazon.com/architecture/reference-architecture-diagrams/
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue:** Icons look pixelated
-- **Solution:** Use SVG format or PNG at 64px minimum. Increase canvas resolution to 300 DPI.
-
-**Issue:** Too many connections crossing each other
-- **Solution:** Add waypoints to route connections around containers. Use different connection anchor points (top/bottom/left/right of icons).
-
-**Issue:** Text overlapping icons
-- **Solution:** Use text boxes with white/transparent background and slight padding. Position labels below or beside icons, not on top.
-
-**Issue:** VPC container looks cluttered
-- **Solution:** Increase VPC container size. Use collapsible groups for subnets. Create a separate detailed VPC diagram.
-
-**Issue:** Colors don't match AWS style
-- **Solution:** Use the official AWS color palette (see Color Coding section). Don't use custom colors for AWS service icons.
-
----
-
-## Version Control
-
-**Recommended File Naming:**
-```
-intelligent-doc-processor-architecture-v1.0.drawio
-intelligent-doc-processor-architecture-v1.0.png
-intelligent-doc-processor-architecture-simplified-v1.0.png
-```
-
-**Track Changes:**
-- Save versioned copies when making major changes
-- Keep source file (.drawio, .lucid, etc.) in repository
-- Export PNG/SVG for documentation
-- Update version number in diagram footer
+**Diagram Tools:**
+- draw.io: https://app.diagrams.net/
+- Lucidchart: https://www.lucidchart.com/
+- CloudCraft: https://cloudcraft.co/ (3D AWS diagrams)
 
 ---
 
 **Document Version:** 1.0  
 **Last Updated:** November 12, 2025  
-**Created For:** Intelligent Document Processor Project  
-**Maintainer:** Architecture Team
-
+**Stack:** SimplifiedDocProcessorStackV3  
+**Estimated Time:** 90-120 minutes for complete diagram
