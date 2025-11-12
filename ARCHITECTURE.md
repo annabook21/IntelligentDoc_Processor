@@ -83,14 +83,14 @@ graph TB
         L2[λ Textract Start<br/>30s timeout<br/>Async Job Init]
         L3[λ Textract Status<br/>30s timeout<br/>Job Polling]
         L4[λ Comprehend Analyze<br/>30s timeout<br/>Language & Entities]
-        L5[λ Bedrock Summarize<br/>45s timeout<br/>Claude Sonnet 3]
+        L5[λ Bedrock Summarize<br/>45s timeout<br/>Claude Sonnet 4.5]
         L6[λ Store Metadata<br/>30s timeout<br/>DynamoDB Write]
     end
 
     subgraph "AWS AI Services"
         Textract[📄 Amazon Textract<br/>Text Extraction<br/>OCR<br/>Async Jobs]
         Comprehend[🔍 Amazon Comprehend<br/>NLP<br/>Language Detection<br/>Entity Extraction<br/>Key Phrases]
-        Bedrock[🤖 Amazon Bedrock<br/>Claude Sonnet 3<br/>Summarization<br/>Insights Extraction]
+        Bedrock[🤖 Amazon Bedrock<br/>Claude Sonnet 4.5<br/>Summarization<br/>Insights Extraction]
     end
 
     subgraph "Data Layer - Primary Region us-west-2"
@@ -228,7 +228,7 @@ graph LR
         TextStart[λ Textract Start<br/>doc-textract-start-us-west-2<br/>30s timeout<br/>Async job init]
         TextStatus[λ Textract Status<br/>doc-textract-status-us-west-2<br/>30s timeout<br/>Job polling]
         Comp[λ Comprehend Analyze<br/>doc-comprehend-us-west-2<br/>30s timeout<br/>NLP analysis]
-        BR[λ Bedrock Summarize<br/>doc-bedrock-us-west-2<br/>45s timeout<br/>AI enrichment<br/>Claude Sonnet 3]
+        BR[λ Bedrock Summarize<br/>doc-bedrock-us-west-2<br/>45s timeout<br/>AI enrichment<br/>Claude Sonnet 4.5]
         Store[λ Store Metadata<br/>doc-store-us-west-2<br/>30s timeout<br/>DynamoDB write]
     end
 
@@ -236,7 +236,7 @@ graph LR
         ENV1[DOCUMENTS_BUCKET<br/>KMS_KEY_ARN<br/>DOCUMENT_NAME_TABLE]
         ENV2[METADATA_TABLE_NAME<br/>DOCUMENT_NAME_TABLE]
         ENV3[HASH_TABLE_NAME]
-        ENV4[BEDROCK_MODEL_ID<br/>Claude Sonnet 3]
+        ENV4[BEDROCK_MODEL_ID<br/>Claude Sonnet 4.5]
     end
 
     Upload -.->|Uses| ENV1
@@ -352,7 +352,7 @@ stateDiagram-v2
         - Generate summary (2-3 sentences)
         - Extract key insights
         - Extract structured data
-        - Model: Claude Sonnet 3
+        - Model: Claude Sonnet 4.5
     end note
 
     SummarizeBedrock --> StoreMetadata
@@ -871,7 +871,7 @@ graph TB
 | **Lambda Duration** | Average execution | ~100 GB-seconds | $0.20 |
 | **Textract** | Document text detection | 5,000 pages | $7.50 |
 | **Comprehend** | Language + entities + phrases | 15,000 units | $1.50 |
-| **Bedrock** | Claude Sonnet 3 | 1K requests × 10K tokens avg | $30.00 |
+| **Bedrock** | Claude Sonnet 4.5 | 1K requests × 10K tokens avg | $30.00 |
 | **DynamoDB** | Pay-per-request | 10K writes, 20K reads | $3.00 |
 | **DynamoDB Replication** | us-east-2 writes | 10K replicated writes | $1.25 |
 | **API Gateway** | REST API | 10K requests | $0.35 |
@@ -1051,7 +1051,7 @@ aws cloudformation describe-stacks \
       - DetectKeyPhrases
       - Return NLP results
    f. Bedrock Summarize Lambda
-      - Call Claude Sonnet 3 with extracted text
+      - Call Claude Sonnet 4.5 with extracted text
       - Generate 2-3 sentence summary
       - Extract key insights
       - Extract structured data (dates, amounts, etc.)

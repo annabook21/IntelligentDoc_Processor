@@ -43,7 +43,7 @@
 |---------|-----|--------------|-------------|--------|---------------|
 | **Amazon Textract** | StartDocumentTextDetection, GetDocumentTextDetection | Standard OCR | 500MB file, async | Extracted text, bounding boxes | $1.50/1K pages |
 | **Amazon Comprehend** | DetectDominantLanguage, DetectEntities, DetectKeyPhrases | Batch mode | 100KB per API call | Language code, entities, key phrases | $0.50/3K units |
-| **Amazon Bedrock** | InvokeModel | Claude Sonnet 3 (anthropic.claude-3-sonnet-20240229-v1:0) | 200K tokens input | Summary (2-3 sentences), key insights, structured data | $3.00 per 1M input tokens, $15.00 per 1M output tokens |
+| **Amazon Bedrock** | InvokeModel | Claude Sonnet 4.5 (anthropic.claude-sonnet-4-5-20250929-v1:0) | 200K tokens input | Summary (2-3 sentences), key insights, structured data | $3.00 per 1M input tokens, $15.00 per 1M output tokens |
 
 ---
 
@@ -205,7 +205,7 @@
 
 | Component | Monthly Cost | % of Total |
 |-----------|--------------|------------|
-| Bedrock (Claude Sonnet 3) | $30.00 | 49% |
+| Bedrock (Claude Sonnet 4.5) | $30.00 | 49% |
 | Textract (5,000 pages) | $7.50 | 12% |
 | CloudWatch (10GB logs) | $5.00 | 8% |
 | CloudFront (50GB transfer) | $4.25 | 7% |
