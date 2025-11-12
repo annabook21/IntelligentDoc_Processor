@@ -208,7 +208,7 @@ Create a horizontal row of 6 Lambda icons (each 64×64):
    - Label: "λ Comprehend\n30s\nNLP"
 
 5. **Bedrock Summarize** (800, 750)
-   - Label: "λ Bedrock\n45s\nClaude 4.5"
+   - Label: "λ Bedrock\n45s\nClaude 3"
 
 6. **Store Metadata** (950, 750)
    - Label: "λ Store Metadata\n30s\nDynamoDB"
@@ -232,7 +232,7 @@ Create a horizontal row of 6 Lambda icons (each 64×64):
    - Position: (650, 950)
 
 3. **Amazon Bedrock** (64×64)
-   - Label: "Amazon Bedrock\nClaude Sonnet 4.5\nSummarization"
+   - Label: "Amazon Bedrock\nClaude 3 Sonnet\nSummarization"
    - Position: (800, 950)
 
 **Connections:**

@@ -4,7 +4,7 @@
 [![AWS](https://img.shields.io/badge/AWS-Serverless-orange)](https://aws.amazon.com/)
 [![CDK](https://img.shields.io/badge/AWS-CDK-blue)](https://aws.amazon.com/cdk/)
 
-A serverless AWS document processing pipeline that uses **Step Functions** to orchestrate Textract, Comprehend, and Bedrock (Claude Sonnet 4.5) for intelligent document analysis.
+A serverless AWS document processing pipeline that uses **Step Functions** to orchestrate Textract, Comprehend, and Bedrock (Claude 3 Sonnet) for intelligent document analysis.
 
 ---
 
@@ -37,7 +37,7 @@ This CDK stack (`SimplifiedDocProcessorStackV3`) deploys:
 **AI Services:**
 - 📄 **Amazon Textract** - OCR text extraction from documents
 - 🔍 **Amazon Comprehend** - NLP: language detection, entities, key phrases
-- 🤖 **Amazon Bedrock** - Claude Sonnet 4.5 for summarization and insights
+- 🤖 **Amazon Bedrock** - Claude 3 Sonnet for summarization and insights
 
 **Data Storage:**
 - 💾 **3 DynamoDB Global Tables** (with DR replication to us-east-2):
@@ -91,7 +91,7 @@ Step Functions orchestrates:
   3. Wait 10 seconds
   4. Textract Status Lambda (poll until complete)
   5. Comprehend Analyze Lambda (language, entities, phrases)
-  6. Bedrock Summarize Lambda (Claude Sonnet 4.5)
+  6. Bedrock Summarize Lambda (Claude 3 Sonnet)
   7. Store Metadata Lambda → DynamoDB
   ↓
 GET /search → Search Lambda → Query DynamoDB → Return results
@@ -122,7 +122,7 @@ React Dashboard displays processed documents
 1. Go to [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/)
 2. Click **Model access** (left sidebar)
 3. Click **Manage model access**
-4. Enable **Anthropic Claude Sonnet 4.5** (`anthropic.claude-sonnet-4-5-20250929-v1:0`)
+4. Enable **Anthropic Claude 3 Sonnet** (`anthropic.claude-sonnet-4-5-20250929-v1:0`)
 5. Wait for status: "Access granted" (may take 1-2 minutes)
 
 ### Deploy Stack
@@ -422,7 +422,7 @@ aws logs tail /aws/lambda/doc-search-us-west-2 --follow
 
 | Service | Monthly Cost | % of Total |
 |---------|--------------|------------|
-| **Bedrock** (Claude Sonnet 4.5, 1K requests) | $30.00 | 49% |
+| **Bedrock** (Claude 3 Sonnet, 1K requests) | $30.00 | 49% |
 | **Textract** (5,000 pages) | $7.50 | 12% |
 | **CloudWatch** (10GB logs, 10 alarms) | $5.00 | 8% |
 | **CloudFront** (50GB transfer) | $4.25 | 7% |
@@ -464,14 +464,14 @@ Edit `backend/lib/intelligent-doc-processor-stack.ts`:
 const bedrockSummarize = new lambda_nodejs.NodejsFunction(this, "BedrockSummarize", {
   environment: {
     BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0", // Change to Haiku (cheaper)
-    // Or: "anthropic.claude-sonnet-4-5-20250929-v1:0" (default, most powerful)
+    // Or: "anthropic.claude-3-sonnet-20240229-v1:0" (default, balanced)
   },
 });
 ```
 
 **Model Comparison:**
 - **Claude Haiku:** $0.25/$1.25 per 1M input/output tokens (cheapest, fast)
-- **Claude Sonnet 4.5:** $3.00/$15.00 per 1M tokens (default, excellent performance)
+- **Claude 3 Sonnet:** $3.00/$15.00 per 1M tokens (default, balanced)
 - **Claude Opus:** $15.00/$75.00 per 1M tokens (most powerful, expensive)
 
 ### Adjust S3 Lifecycle
