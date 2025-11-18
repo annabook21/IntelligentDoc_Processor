@@ -12,6 +12,7 @@ function Dashboard() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     total: 0,
     languages: {},
@@ -136,6 +137,44 @@ function Dashboard() {
     }
   };
 
+  // Filter documents based on search query
+  const filteredDocuments = documents.filter((doc) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const docName = (doc.documentName || '').toLowerCase();
+    const docText = (doc.text || '').toLowerCase();
+    const docSummary = (doc.summary || '').toLowerCase();
+    const docLanguage = (doc.language || '').toLowerCase();
+    
+    // Search in entities
+    let entitiesText = '';
+    try {
+      const entities = typeof doc.entities === 'string' ? JSON.parse(doc.entities) : doc.entities || [];
+      entitiesText = entities.map(e => e.text || e.Text || '').join(' ').toLowerCase();
+    } catch (e) {
+      // Skip invalid entity data
+    }
+    
+    // Search in key phrases
+    let keyPhrasesText = '';
+    try {
+      const keyPhrases = typeof doc.keyPhrases === 'string' ? JSON.parse(doc.keyPhrases) : doc.keyPhrases || [];
+      keyPhrasesText = keyPhrases.map(kp => kp.text || kp.Text || '').join(' ').toLowerCase();
+    } catch (e) {
+      // Skip invalid key phrase data
+    }
+    
+    return (
+      docName.includes(query) ||
+      docText.includes(query) ||
+      docSummary.includes(query) ||
+      docLanguage.includes(query) ||
+      entitiesText.includes(query) ||
+      keyPhrasesText.includes(query)
+    );
+  });
+
   if (loading) {
     return <div className="loading">Loading dashboard...</div>;
   }
@@ -149,6 +188,33 @@ function Dashboard() {
       <div className="page-header">
         <h1>Document Processing Dashboard</h1>
         <p>Overview of processed documents and insights</p>
+      </div>
+
+      {/* Search Bar */}
+      <div className="search-section">
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="🔍 Search documents by name, content, entities, or key phrases..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          {searchQuery && (
+            <button 
+              className="clear-search-button"
+              onClick={() => setSearchQuery('')}
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {searchQuery && (
+          <div className="search-results-info">
+            Found {filteredDocuments.length} of {documents.length} documents
+          </div>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -206,6 +272,13 @@ function Dashboard() {
               Upload Your First Document
             </Link>
           </div>
+        ) : filteredDocuments.length === 0 ? (
+          <div className="empty-state">
+            <p>No documents match your search query.</p>
+            <button onClick={() => setSearchQuery('')} className="button">
+              Clear Search
+            </button>
+          </div>
         ) : (
           <div className="documents-table">
             <table>
@@ -219,7 +292,7 @@ function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {documents.slice(0, 20).map((doc) => (
+                {filteredDocuments.slice(0, 20).map((doc) => (
                   <tr key={doc.documentId}>
                     <td>{doc.documentName || "Unknown Document"}</td>
                     <td>
