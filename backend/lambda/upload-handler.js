@@ -22,6 +22,145 @@ exports.handler = async (event) => {
   try {
     // Parse request body
     const body = JSON.parse(event.body || "{}");
+    const { files } = body;
+    
+    // Check if this is a batch upload request
+    if (files && Array.isArray(files)) {
+      // ========== BATCH UPLOAD MODE ==========
+      if (files.length === 0) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: "files array cannot be empty" }),
+        };
+      }
+
+      // Validate all files have required fields
+      for (const file of files) {
+        if (!file.fileName || !file.fileType || !file.documentName) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ 
+              error: "Each file must have fileName, fileType, and documentName",
+              invalidFile: file
+            }),
+          };
+        }
+      }
+
+      // Process all files in parallel
+      const timestamp = Date.now();
+      const uploadResults = await Promise.all(
+        files.map(async (file, index) => {
+          try {
+            // Validate file type
+            const allowedTypes = [
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/msword",
+              "image/png",
+              "image/jpeg",
+              "image/jpg",
+            ];
+
+            if (!allowedTypes.includes(file.fileType)) {
+              return {
+                fileName: file.fileName,
+                documentName: file.documentName,
+                success: false,
+                error: `File type ${file.fileType} not allowed`,
+              };
+            }
+
+            // Validate and sanitize document name
+            const sanitizedDocName = file.documentName.trim().substring(0, 100);
+            if (!sanitizedDocName) {
+              return {
+                fileName: file.fileName,
+                success: false,
+                error: "documentName cannot be empty",
+              };
+            }
+
+            // Generate friendly documentId (UUID)
+            const documentId = uuidv4();
+            
+            // Generate S3 key with timestamp and index for uniqueness
+            const sanitizedFileName = file.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const s3Key = `uploads/${timestamp}-${index}-${sanitizedFileName}`;
+
+            // Store document name mapping in DynamoDB
+            const now = new Date().toISOString();
+            await dynamodb.send(
+              new PutItemCommand({
+                TableName: process.env.DOCUMENT_NAME_TABLE,
+                Item: {
+                  documentId: { S: documentId },
+                  documentName: { S: sanitizedDocName },
+                  s3Key: { S: s3Key },
+                  s3Bucket: { S: process.env.DOCUMENTS_BUCKET },
+                  originalFileName: { S: file.fileName },
+                  uploadDate: { S: now },
+                  status: { S: "UPLOADING" },
+                },
+              })
+            );
+
+            console.log(`Created document mapping: ${documentId} -> ${sanitizedDocName} (S3: ${s3Key})`);
+
+            // Create presigned URL (expires in 10 minutes for batch uploads)
+            const command = new PutObjectCommand({
+              Bucket: process.env.DOCUMENTS_BUCKET,
+              Key: s3Key,
+              ContentType: file.fileType,
+              Metadata: {
+                documentId: documentId,
+                documentName: sanitizedDocName,
+              },
+            });
+
+            const presignedUrl = await getSignedUrl(s3, command, { expiresIn: 600 }); // 10 minutes
+
+            return {
+              fileName: file.fileName,
+              documentName: sanitizedDocName,
+              uploadUrl: presignedUrl,
+              key: s3Key,
+              documentId: documentId,
+              success: true,
+            };
+          } catch (error) {
+            console.error(`Error processing ${file.fileName}:`, error);
+            return {
+              fileName: file.fileName,
+              documentName: file.documentName,
+              success: false,
+              error: error.message,
+            };
+          }
+        })
+      );
+
+      const successCount = uploadResults.filter(r => r.success).length;
+      const failureCount = uploadResults.length - successCount;
+
+      console.log(`Batch upload: ${successCount} succeeded, ${failureCount} failed`);
+
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          batch: true,
+          totalFiles: files.length,
+          successCount,
+          failureCount,
+          results: uploadResults,
+        }),
+      };
+    }
+
+    // ========== SINGLE FILE UPLOAD (Backwards Compatible) ==========
     const { fileName, fileType, documentName } = body;
 
     if (!fileName || !fileType || !documentName) {
